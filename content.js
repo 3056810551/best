@@ -268,6 +268,60 @@ color: rgba(255, 255, 255, 1) !important;
   color: #90caf9 !important;
   border-bottom: 1px solid #90caf9 !important;
 }
+
+/* --- 侧边栏与新按钮样式 (新增) --- */
+    #custom-word-sidebar {
+      position: fixed;
+      top: 0;
+      right: -350px; /* 默认隐藏在屏幕外 */
+      width: 320px;
+      height: 100vh;
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 999999;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+      color: white;
+      font-family: sans-serif;
+    }
+    #custom-word-sidebar.show {
+      right: 0; /* 滑出 */
+    }
+    .sidebar-header {
+      padding: 20px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar-close-btn {
+      cursor: pointer;
+      opacity: 0.6;
+    }
+    .sidebar-close-btn:hover { opacity: 1; color: #ff453a; }
+    .sidebar-word-list {
+      list-style: none;
+      padding: 10px 0;
+      margin: 0;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .sidebar-word-list li {
+      padding: 12px 20px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background 0.2s;
+    }
+    .sidebar-word-list li:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #64b5f6;
+    }
   `;
 }
 
@@ -289,3 +343,209 @@ chrome.runtime.onMessage.addListener((request) => {
     );
   }
 });
+
+// ==========================================
+// 2. 注入单词侧边栏与工具栏图标 (本次新增核心)
+// ==========================================
+
+// 从图片中提取的单词库（你可以随时在这里增删单词）
+const wordList = [
+  "brisk",
+  "brief",
+  "browse",
+  "aggravate",
+  "aggregate",
+  "aggressive",
+  "agitate",
+  "agreeable",
+  "aid",
+  "aim",
+  "alarm",
+  "alien",
+  "alienate",
+  "allocate",
+  "allow",
+  "alter",
+  "alternate",
+  "alternative",
+  "comparable",
+  "comparative",
+  "compare",
+  "comparison",
+  "compel",
+  "compensate",
+  "compete",
+  "competition",
+  "competitive",
+  "competent",
+  "compile",
+  "complain",
+  "complaint",
+  "complement",
+  "complete",
+  "complex",
+  "complicate",
+  "complicated",
+  "comply",
+  "compliment",
+  "differ",
+  "difference",
+  "diffuse",
+  "emphasis",
+  "emphasize",
+  "employ",
+  "employee",
+  "employer",
+  "employment",
+  "enable",
+  "encounter",
+  "encourage",
+  "end",
+  "endeavour",
+  "endorse",
+  "indicate",
+  "indication",
+  "indicative",
+  "outrage",
+  "outset",
+  "outside",
+  "outward",
+  "special",
+  "specialist",
+  "specialize",
+  "specialty",
+  "species",
+  "specific",
+  "specification",
+  "specify",
+  "speculate",
+];
+
+// 创建并注入侧边栏 HTML
+function createSidebar() {
+  if (document.getElementById("custom-word-sidebar")) return;
+
+  const sidebar = document.createElement("div");
+  sidebar.id = "custom-word-sidebar";
+
+  // 生成单词 `<li>` 列表
+  const wordsHtml = wordList
+    .map((word) => `<li data-word="${word}">${word}</li>`)
+    .join("");
+
+  sidebar.innerHTML = `
+    <div class="sidebar-header">
+      <span>单词本 (词汇表)</span>
+      <span class="material-symbols-outlined sidebar-close-btn" id="sidebar-close">close</span>
+    </div>
+    <ul class="sidebar-word-list" id="sidebar-word-list">
+      ${wordsHtml}
+    </ul>
+  `;
+  document.body.appendChild(sidebar);
+
+  // 绑定关闭按钮事件
+  document.getElementById("sidebar-close").addEventListener("click", () => {
+    sidebar.classList.remove("show");
+  });
+
+  // 绑定单词点击跳转事件 (事件委托机制)
+  document
+    .getElementById("sidebar-word-list")
+    .addEventListener("click", (e) => {
+      if (e.target.tagName === "LI") {
+        const targetWord = e.target.getAttribute("data-word");
+        // 触发 SPA 路由跳转！改变 hash 即可让 React 重新拉取视频
+        // 1. 修改 URL (使用 HTML5 History API 更安全)
+        const newHash = `#/search?q=${targetWord}&language=en`;
+        window.history.pushState(null, "", newHash);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+        // 2. 模拟 React 搜索框输入并回车 (终极必杀技)
+        // 延迟 50 毫秒执行，等待前面的路由事件消化
+        setTimeout(() => {
+          // 找到页面顶部的搜索框 (通常是页面里的第一个 input)
+          const searchInput = document.querySelector("input");
+          if (searchInput) {
+            // 绕过 React 的虚拟 DOM 拦截，直接修改底层原生 input 的值
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype,
+              "value",
+            ).set;
+            nativeInputValueSetter.call(searchInput, targetWord);
+
+            // 派发 input 事件，骗过 React，让它以为是你亲手输入的
+            searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+            // 派发 Enter 回车键事件，触发网站内部的搜索和网络请求
+            searchInput.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+              }),
+            );
+          }
+        }, 50);
+
+        // (可选) 侧边栏点完后自动收起，体验更好
+        document.getElementById("custom-word-sidebar").classList.remove("show");
+      }
+    });
+}
+
+// 在导航栏插入新图标
+function injectToolbarButton() {
+  // 如果已经插入过了，就跳过
+  if (document.getElementById("custom-sidebar-btn")) return;
+
+  // 寻找 Settings 按钮的容器
+  const settingsIconContainer = document.querySelector(
+    '.filter-input-icon[aria-label="Settings"]',
+  );
+  if (!settingsIconContainer) return;
+
+  const settingsLi = settingsIconContainer.closest("li");
+  if (!settingsLi) return;
+
+  // 创建我们的新 <li> 图标元素
+  const newLi = document.createElement("li");
+  newLi.className = "input-button";
+  newLi.id = "custom-sidebar-btn";
+  newLi.innerHTML = `
+    <div role="button" tabindex="0" class="filter-input-icon" aria-label="Open Word List">
+      <i class="material-symbols-outlined" style="color: #64b5f6;">format_list_bulleted</i>
+    </div>
+  `;
+
+  // 插入到 Settings 的前面
+  settingsLi.parentNode.insertBefore(newLi, settingsLi);
+
+  // 点击图标弹出侧边栏
+  newLi.addEventListener("click", () => {
+    const sidebar = document.getElementById("custom-word-sidebar");
+    if (sidebar) {
+      sidebar.classList.toggle("show");
+    }
+  });
+}
+
+// ==========================================
+// 3. 动态监视 DOM 变化，确保图标成功插入
+// ==========================================
+// 因为网页是动态加载的，我们要监视 DOM，一旦 Settings 渲染出来，我们就插入。
+const observer = new MutationObserver((mutations, obs) => {
+  const settingsIconContainer = document.querySelector(
+    '.filter-input-icon[aria-label="Settings"]',
+  );
+  if (settingsIconContainer) {
+    createSidebar();
+    injectToolbarButton();
+  }
+});
+
+// 开始监听 body 的变化
+observer.observe(document.body, { childList: true, subtree: true });
