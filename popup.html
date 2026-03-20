@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh">
   <head>
     <meta charset="UTF-8" />
@@ -23,8 +23,20 @@
         font-size: 14px;
         margin-bottom: 5px;
       }
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .checkbox-row label {
+        margin-bottom: 0;
+      }
       input[type="range"] {
         width: 100%;
+        cursor: pointer;
+      }
+      input[type="checkbox"] {
         cursor: pointer;
       }
     </style>
@@ -35,31 +47,22 @@
     <div class="control-group">
       <label>
         <span>主字幕 (英文)</span>
-        <span id="mainVal">1.8</span>rem
+        <span><span id="mainVal">1.8</span>rem</span>
       </label>
-      <input
-        type="range"
-        id="mainSize"
-        min="0.5"
-        max="5"
-        step="0.1"
-        value="1.8"
-      />
+      <input type="range" id="mainSize" min="0.5" max="5" step="0.1" value="1.8" />
     </div>
 
     <div class="control-group">
       <label>
         <span>翻译 (中文)</span>
-        <span id="transVal">1.5</span>rem
+        <span><span id="transVal">1.5</span>rem</span>
       </label>
-      <input
-        type="range"
-        id="transSize"
-        min="0.5"
-        max="4"
-        step="0.1"
-        value="1.5"
-      />
+      <input type="range" id="transSize" min="0.5" max="4" step="0.1" value="1.5" />
+    </div>
+
+    <div class="control-group checkbox-row">
+      <label for="headerVisible">显示顶部 Header</label>
+      <input type="checkbox" id="headerVisible" />
     </div>
 
     <script src="popup.js"></script>
