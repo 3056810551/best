@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "playphrase.me",
+    "version": "1.9",
+    "description": "自定义并记忆网站字幕字体大小",
+    "permissions": [
+        "storage",
+        "activeTab",
+        "scripting"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "调节字幕大小"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.playphrase.me/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "style.css"
+            ]
+        }
+    ]
+}

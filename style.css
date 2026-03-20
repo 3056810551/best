@@ -1,0 +1,32 @@
+.overlay-play-modifiers {
+  display: none !important;
+}
+
+/* 隐藏 底部上下文控制栏（上一集、下一集按钮） */
+.context-control {
+  display: none !important;
+}
+
+.menu-tabs > div {
+  display: none !important;
+}
+
+.menu-tabs > div:nth-child(5) {
+  display: flex !important; /* 鎭㈠ flex 甯冨眬 */
+}
+
+.filter-input-icons > li:nth-child(2),
+.filter-input-icons > li:nth-child(3),
+.filter-input-icons > li:nth-child(4),
+.filter-input-icons > li:nth-child(5),
+.filter-input-icons > li:nth-child(6),
+.filter-input-icons > li:nth-child(7),
+.filter-input-icons > li:nth-child(8) {
+  display: none !important;
+}
+
+.side-menu-page-container .side-menu,
+.video-overlay.stopped .side-container-flex .side-menu,
+.video-overlay-stopped .side-container-flex .side-menu {
+  opacity: 1 !important;
+}
