@@ -151,6 +151,60 @@ function applyStyles(mainSize, transSize, headerVisible) {
       font-weight: bold;
       border-left: 4px solid #64b5f6;
     }
+
+    /**===================**/
+    /* --- 侧边栏与新按钮样式 --- */
+    #custom-word-sidebar {
+      position: fixed; top: 0; right: -350px; width: 320px; height: 100vh;
+      background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border-left: 1px solid rgba(255, 255, 255, 0.1); z-index: 999999;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+      color: white; font-family: sans-serif;
+    }
+    #custom-word-sidebar.show { right: 0; }
+    .sidebar-header { padding: 20px; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: space-between; align-items: center; }
+    .sidebar-close-btn { cursor: pointer; opacity: 0.6; }
+    .sidebar-close-btn:hover { opacity: 1; color: #ff453a; }
+    .sidebar-word-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; scroll-behavior: smooth; }
+
+    /* 本次新增/修改：单元标题与具体单词的区分样式 */
+    
+    /* 1. 单元标题 (Unit 1, Unit 2) */
+    .sidebar-word-list .unit-header {
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.5);
+      background: rgba(0, 0, 0, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      position: sticky; /* 滑动时标题会自动吸顶，体验极佳 */
+      top: 0;
+      z-index: 10;
+      cursor: default; /* 鼠标变成普通指针，表示不可点击 */
+    }
+
+    /* 2. 具体单词 (可点击) */
+    .sidebar-word-list li.word-item { 
+      padding: 12px 20px 12px 30px; /* 左边距加大一点，形成层级感 */
+      cursor: pointer; 
+      border-bottom: 1px solid rgba(255,255,255,0.03); 
+      transition: all 0.2s; 
+    }
+    .sidebar-word-list li.word-item:hover { 
+      background: rgba(255, 255, 255, 0.1); 
+      color: #64b5f6; 
+    }
+    
+    /* 3. 当前播放单词的高亮样式 */
+    .sidebar-word-list li.word-item.active-word {
+      background: rgba(100, 181, 246, 0.2);
+      color: #90caf9;
+      font-weight: bold;
+      border-left: 4px solid #64b5f6;
+      padding-left: 26px; /* 因为加了 4px 边框，减去对应的 padding 保持文字对齐 */
+    }
   `;
 }
 
@@ -178,76 +232,400 @@ chrome.runtime.onMessage.addListener((request) => {
 // ==========================================
 
 // 从图片中提取的单词库（你可以随时在这里增删单词）
-const wordList = [
-  "brisk",
-  "brief",
-  "browse",
-  "aggravate",
-  "aggregate",
-  "aggressive",
-  "agitate",
-  "agreeable",
-  "aid",
-  "aim",
-  "alarm",
-  "alien",
-  "alienate",
-  "allocate",
-  "allow",
-  "alter",
-  "alternate",
-  "alternative",
-  "comparable",
-  "comparative",
-  "compare",
-  "comparison",
-  "compel",
-  "compensate",
-  "compete",
-  "competition",
-  "competitive",
-  "competent",
-  "compile",
-  "complain",
-  "complaint",
-  "complement",
-  "complete",
-  "complex",
-  "complicate",
-  "complicated",
-  "comply",
-  "compliment",
-  "differ",
-  "difference",
-  "diffuse",
-  "emphasis",
-  "emphasize",
-  "employ",
-  "employee",
-  "employer",
-  "employment",
-  "enable",
-  "encounter",
-  "encourage",
-  "end",
-  "endeavour",
-  "endorse",
-  "indicate",
-  "indication",
-  "indicative",
-  "outrage",
-  "outset",
-  "outside",
-  "outward",
-  "special",
-  "specialist",
-  "specialize",
-  "specialty",
-  "species",
-  "specific",
-  "specification",
-  "specify",
-  "speculate",
+const wordData = [
+  {
+    title: "Unit 1",
+    words: [
+      "radiate",
+      "radiant",
+      "radical",
+      "object",
+      "objective",
+      "objection",
+      "obligation",
+      "oblige",
+      "obscure",
+      "observation",
+      "observe",
+      "obsession",
+      "obsolete",
+      "obtain",
+      "obvious",
+      "ideal",
+      "ideology",
+      "identical",
+      "identification",
+      "identify",
+      "identity",
+      "journal",
+      "journalist",
+      "journey",
+      "judge",
+      "judg(e)ment",
+      "judicial",
+      "jury",
+      "jurisdiction",
+      "justice",
+      "justify",
+      "label",
+      "lag",
+      "largely",
+      "lateral",
+      "latter",
+      "law",
+      "lawsuit",
+      "magnitude",
+      "magnify",
+      "magnificent",
+      "maintain",
+      "maintenance",
+      "major",
+      "majority",
+      "make",
+      "theme",
+      "theory",
+      "theoretical",
+      "therapy",
+      "qualification",
+      "qualify",
+      "quality",
+      "qualitative",
+      "safeguard",
+      "safety",
+      "savage",
+      "save",
+      "saving",
+      "scale",
+      "scene",
+      "scenery",
+      "pace",
+      "panel",
+      "panorama",
+      "prove",
+      "provide",
+      "provided",
+    ],
+  },
+  {
+    title: "Unit 2",
+    words: [
+      "mediate",
+      "meditation",
+      "medium",
+      "media",
+      "elaborate",
+      "elegant",
+      "element",
+      "elementary",
+      "eliminate",
+      "abolish",
+      "absence",
+      "absent",
+      "abroad",
+      "absolute",
+      "absorb",
+      "abstract",
+      "ban",
+      "bar",
+      "bare",
+      "barely",
+      "bargain",
+      "capable",
+      "capacity",
+      "capital",
+      "captive",
+      "capture",
+      "career",
+      "careful",
+      "case",
+      "cast",
+      "casual",
+      "casualty",
+      "catch",
+      "category",
+      "cater",
+      "cause",
+      "caution",
+      "cautious",
+      "cease",
+      "celebrate",
+      "celebrity",
+      "ceremony",
+      "certain",
+      "certainty",
+      "certificate",
+      "certify",
+      "decline",
+      "decrease",
+      "decree",
+      "deem",
+      "dedicate",
+      "deduce",
+      "deduct",
+      "fashion",
+      "fashionable",
+      "favo(u)r",
+      "favo(u)rable",
+      "favo(u)rite",
+      "sit",
+      "site",
+      "situate",
+      "situation",
+      "skeleton",
+      "skeptical",
+      "sketch",
+    ],
+  },
+  {
+    title: "Unit 3",
+    words: [
+      "embrace",
+      "embed",
+      "embody",
+      "embryo",
+      "elicit",
+      "elite",
+      "elsewhere",
+      "thirst",
+      "thorough",
+      "though",
+      "thought",
+      "thoughtful",
+      "threat",
+      "threaten",
+      "update",
+      "upgrade",
+      "uphold",
+      "upset",
+      "up-to-date",
+      "ventilate",
+      "venture",
+      "widespread",
+      "win",
+      "wit",
+      "withdraw",
+      "witness",
+      "inaugurate",
+      "incentive",
+      "incidence",
+      "incident",
+      "incidentally",
+      "incline",
+      "academic",
+      "academy",
+      "accelerate",
+      "accept",
+      "acceptance",
+      "access",
+      "accessory",
+      "begin",
+      "beginning",
+      "behalf",
+      "behave",
+      "behavio(u)r",
+      "belief",
+      "believe",
+      "belong",
+      "beneficial",
+      "benefit",
+      "benevolent",
+      "benign",
+      "challenge",
+      "chance",
+      "change",
+      "channel",
+      "character",
+      "characterise",
+      "characteristic",
+      "defend",
+      "define",
+      "definite",
+      "definition",
+      "defy",
+      "degree",
+      "delay",
+      "deliberate",
+      "delicate",
+      "deliver",
+      "delivery",
+      "fiction",
+      "field",
+      "fierce",
+      "fight",
+      "figure",
+      "finance",
+      "financial",
+      "finding",
+      "finite",
+      "firm",
+      "first",
+      "fit",
+      "global",
+      "globe",
+    ],
+  },
+  {
+    title: "Unit 4",
+    words: [
+      "abandon",
+      "abide",
+      "ability",
+      "able",
+      "abnormal",
+      "background",
+      "balance",
+      "base",
+      "basement",
+      "basic",
+      "basis",
+      "calculate",
+      "call",
+      "calm",
+      "campaign",
+      "candidate",
+      "data",
+      "database",
+      "date",
+      "dazzle",
+      "deal",
+      "dealer",
+      "debate",
+      "decade",
+      "decide",
+      "decision",
+      "decisive",
+      "decorate",
+      "economic",
+      "economical",
+      "economics",
+      "economy",
+      "educate",
+      "education",
+      "effect",
+      "effective",
+      "efficient",
+      "efficiency",
+      "effort",
+      "fabric",
+      "fabricate",
+      "face",
+      "facet",
+      "factor",
+      "fade",
+      "fail",
+      "failure",
+      "fair",
+      "fairly",
+      "fall",
+      "fan",
+      "fancy",
+      "fascinate",
+      "gain",
+      "gamble",
+      "gap",
+      "gene",
+      "general",
+      "generalize",
+      "habit",
+      "habitat",
+      "hamper",
+      "handicap",
+      "shield",
+      "shift",
+      "shoulder",
+      "show",
+      "shower",
+    ],
+  },
+  {
+    title: "Unit 5",
+    words: [
+      "glamo(u)r",
+      "generate",
+      "generation",
+      "generator",
+      "generous",
+      "genius",
+      "gift",
+      "genre",
+      "giant",
+      "gigantic",
+      "give",
+      "happen",
+      "harm",
+      "harmony",
+      "harsh",
+      "ignorance",
+      "ignorant",
+      "ignore",
+      "ill",
+      "illness",
+      "illusion",
+      "illustrate",
+      "illustration",
+      "image",
+      "imagine",
+      "imaginary",
+      "imagination",
+      "imaginative",
+      "imitate",
+      "imitation",
+      "lead",
+      "leadership",
+      "leading",
+      "legal",
+      "legislation",
+      "legitimate",
+      "leisure",
+      "level",
+      "lever",
+      "levy",
+      "manage",
+      "management",
+      "mandate",
+      "manifest",
+      "manipulate",
+      "manner",
+      "margin",
+      "marginal",
+      "mass",
+      "massive",
+      "massacre",
+      "occupation",
+      "occupy",
+      "occur",
+      "occurrence",
+      "offend",
+      "offer",
+      "offset",
+      "offspring",
+      "paragraph",
+      "paralyse",
+      "parallel",
+      "part",
+      "partial",
+      "participant",
+      "participate",
+      "particle",
+      "particular",
+      "partly",
+      "partner",
+      "passion",
+      "passive",
+      "quick",
+      "quit",
+      "quest",
+      "questionnaire",
+      "quote",
+      "span",
+      "spare",
+      "schedule",
+      "scheme",
+      "science",
+      "scientific",
+      "scientist",
+    ],
+  },
 ];
 
 // 从 URL 中提取当前的单词
@@ -261,20 +639,20 @@ function syncSidebarWithURL() {
   const currentWord = getCurrentWordFromHash();
   if (!currentWord) return;
 
-  // 记忆当前单词到本地存储
   localStorage.setItem("playphrase_last_word", currentWord);
 
-  // 移除所有高亮
-  const listItems = document.querySelectorAll(".sidebar-word-list li");
+  // 移除所有单词的高亮
+  const listItems = document.querySelectorAll(
+    ".sidebar-word-list li.word-item",
+  );
   listItems.forEach((li) => li.classList.remove("active-word"));
 
   // 找到对应的单词并高亮 + 滚动定位
   const activeLi = document.querySelector(
-    `.sidebar-word-list li[data-word="${currentWord}"]`,
+    `.sidebar-word-list li.word-item[data-word="${currentWord}"]`,
   );
   if (activeLi) {
     activeLi.classList.add("active-word");
-    // 自动滚动到侧边栏中间位置
     activeLi.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 }
@@ -284,7 +662,6 @@ function restoreLastWord() {
   const lastWord = localStorage.getItem("playphrase_last_word");
   const currentHash = window.location.hash;
 
-  // 如果缓存里有单词，并且当前没有指定搜索（比如刚打开首页）
   if (lastWord && (!currentHash || !currentHash.includes("q="))) {
     window.location.hash = `/search?q=${lastWord}&language=en`;
   }
@@ -297,9 +674,16 @@ function createSidebar() {
   const sidebar = document.createElement("div");
   sidebar.id = "custom-word-sidebar";
 
-  const wordsHtml = wordList
-    .map((word) => `<li data-word="${word}">${word}</li>`)
-    .join("");
+  // 动态生成包含单元标题和单词的 HTML 结构
+  let wordsHtml = "";
+  wordData.forEach((group) => {
+    // 插入不可点击的单元标题
+    wordsHtml += `<li class="unit-header">${group.title}</li>`;
+    // 插入可点击的具体单词
+    group.words.forEach((word) => {
+      wordsHtml += `<li class="word-item" data-word="${word}">${word}</li>`;
+    });
+  });
 
   sidebar.innerHTML = `
     <div class="sidebar-header">
@@ -316,11 +700,15 @@ function createSidebar() {
     sidebar.classList.remove("show");
   });
 
+  // 【核心修改】事件委托：严格判断点击的是不是单词
   document
     .getElementById("sidebar-word-list")
     .addEventListener("click", (e) => {
-      if (e.target.tagName === "LI") {
-        const targetWord = e.target.getAttribute("data-word");
+      // 使用 closest 确保我们点到的是带有 word-item 类的 <li>
+      const targetLi = e.target.closest("li.word-item");
+
+      if (targetLi) {
+        const targetWord = targetLi.getAttribute("data-word");
         window.location.hash = `/search?q=${targetWord}&language=en`;
 
         setTimeout(() => {
@@ -366,10 +754,9 @@ function createSidebar() {
       }
     });
 
-  // 侧边栏创建完成后，执行一次同步
   syncSidebarWithURL();
 }
-// 在导航栏插入新图标
+
 function injectToolbarButton() {
   if (document.getElementById("custom-sidebar-btn")) return;
 
@@ -394,13 +781,13 @@ function injectToolbarButton() {
     const sidebar = document.getElementById("custom-word-sidebar");
     if (sidebar) {
       sidebar.classList.toggle("show");
-      // 每次点开侧边栏时，确保滚动位置正确
       if (sidebar.classList.contains("show")) {
         syncSidebarWithURL();
       }
     }
   });
 }
+
 // ==========================================
 // 3. 动态监视 DOM 变化，确保图标成功插入
 // ==========================================
