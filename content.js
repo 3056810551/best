@@ -66,12 +66,14 @@ function applyStyles(mainSize, transSize, headerVisible) {
     /* --- 2. 中文翻译区域 --- */
     .translate {
       font-size: ${transSize}rem !important;
+      color: #ffffff !important;
     }
 
     .translate-text {
       font-size: ${transSize}rem !important;
       line-height: 1.4 !important;
       padding: 0.3em 0 !important;
+      color: #ffffff !important;
     }
 
     /* --- 3. 复制按钮等比例缩放 --- */
