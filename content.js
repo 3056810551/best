@@ -104,6 +104,31 @@ function applyStyles(mainSize, transSize, headerVisible) {
       line-height: 1 !important;
       height: auto !important;
     }
+
+    /* =========================================
+       4. 底部翻页栏居中及隐藏过滤选项 (本次新增)
+       ========================================= */
+    
+    /* 强行隐藏 Level 和 Topic 筛选框 */
+    .favorites-search-form-content .filters-form {
+      display: none !important;
+    }
+
+    /* 强行让包裹层居中对齐 */
+    .favorites-search-form-content {
+      display: flex !important;
+      justify-content: center !important;
+    }
+    
+    .favorites-search-form-content .one-line {
+      justify-content: center !important;
+    }
+
+    /* 清除原本把翻页器推到最右边的 margin-left: auto */
+    .favorites-search-form-content .pagging {
+      justify-content: center !important;
+      margin-left: 0 !important; 
+    }
   `;
 }
 
