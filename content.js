@@ -175,8 +175,8 @@ function applyStyles(mainSize, transSize, headerVisible) {
     .sidebar-word-list .unit-header {
       padding: 10px 20px;
       font-size: 0.85rem;
-      color: rgba(255, 255, 255, 0.5);
-      background: rgba(0, 0, 0, 0.4);
+      color: rgba(255, 255, 255, 255);
+      background: rgba(0, 0, 0, 1);
       text-transform: uppercase;
       letter-spacing: 1px;
       position: sticky; /* 滑动时标题会自动吸顶，体验极佳 */
