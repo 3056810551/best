@@ -94,8 +94,8 @@ function applyStyles(mainSize, transSize, headerVisible) {
     #custom-word-sidebar {
       position: fixed;
       top: 0;
-      right: -350px; /* 默认隐藏在屏幕外 */
-      width: 320px;
+      right: -550px; /* 默认隐藏在屏幕外 */
+      width: 520px;
       height: 100vh;
       background: rgba(20, 20, 20, 0.85);
       backdrop-filter: blur(16px) saturate(180%);
