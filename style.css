@@ -17,7 +17,7 @@
 
 .video-overlay-stopped {
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-end !important;
   justify-content: center !important;
 }
 

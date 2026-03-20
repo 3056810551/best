@@ -48,7 +48,7 @@ function applyStyles(mainSize, transSize, headerVisible) {
       min-height: auto !important;
 
       /* 防止句子太长贴到屏幕边缘，保持居中 */
-      max-width: 90% !important; 
+      max-width: 99% !important; 
       margin-left: auto !important;
       margin-right: auto !important;
     }
