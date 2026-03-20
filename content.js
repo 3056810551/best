@@ -9,7 +9,9 @@ document.addEventListener(
       event.target.currentTime = 0;
       event.target.play();
 
-      console.log("PlayPhrase Looper: 视频已重置并循环播放，已拦截自动下一条。");
+      console.log(
+        "PlayPhrase Looper: 视频已重置并循环播放，已拦截自动下一条。",
+      );
     }
   },
   true,
@@ -21,7 +23,10 @@ const autoSelectFavorites = setInterval(() => {
 
   if (tabs.length > 0) {
     tabs.forEach((tab) => {
-      if (tab.textContent.includes("Favorites") && !tab.classList.contains("selected")) {
+      if (
+        tab.textContent.includes("Favorites") &&
+        !tab.classList.contains("selected")
+      ) {
         tab.click();
         console.log("PlayPhrase Looper: 已自动选中 Favorites 标签。");
       }
@@ -46,11 +51,21 @@ function applyStyles(mainSize, transSize, headerVisible) {
 
     /* --- 1. 英文主字幕区域 --- */
     .karaoke-page-content {
+    /* 【阴影修复核心】将原本的 inline 强制改为 inline-block，把多行字幕打包成一个完整的盒子 */
+      display: inline-block !important;
+      /* 你自定义的阴影和圆角效果（使用 em 让圆角跟随字体缩放） */
+      box-shadow: rgba(0, 0, 0, 0.55) 0px 0px 14px !important;
+      border-radius: 0.35em !important;
       font-size: ${mainSize}rem !important;
       padding: 0.6em 0.4em 0.4em 0.4em !important;
       margin-bottom: 0.3em !important;
       line-height: 1.4 !important;
       min-height: auto !important;
+
+      /* 防止句子太长贴到屏幕边缘，保持居中 */
+      max-width: 99% !important; 
+      margin-left: auto !important;
+      margin-right: auto !important;
     }
 
     .karaoke-page-content * {
@@ -58,6 +73,7 @@ function applyStyles(mainSize, transSize, headerVisible) {
     }
 
     .karaoke-page-content .s-word {
+      text-shadow: none !important;
       padding: 0 0.15em !important;
       word-spacing: -0.1em !important;
       line-height: inherit !important;
@@ -103,7 +119,9 @@ chrome.runtime.onMessage.addListener((request) => {
     applyStyles(
       request.mainSize,
       request.transSize,
-      typeof request.headerVisible === "boolean" ? request.headerVisible : false,
+      typeof request.headerVisible === "boolean"
+        ? request.headerVisible
+        : false,
     );
   }
 });
