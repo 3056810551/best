@@ -143,6 +143,14 @@ function applyStyles(mainSize, transSize, headerVisible) {
       background: rgba(255, 255, 255, 0.1);
       color: #64b5f6;
     }
+
+    /* 本次新增：当前播放单词的高亮样式 */
+    .sidebar-word-list li.active-word {
+      background: rgba(100, 181, 246, 0.2);
+      color: #90caf9;
+      font-weight: bold;
+      border-left: 4px solid #64b5f6;
+    }
   `;
 }
 
@@ -242,14 +250,53 @@ const wordList = [
   "speculate",
 ];
 
-// 创建并注入侧边栏 HTML
+// 从 URL 中提取当前的单词
+function getCurrentWordFromHash() {
+  const match = window.location.hash.match(/q=([^&]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// 同步侧边栏状态并记忆单词
+function syncSidebarWithURL() {
+  const currentWord = getCurrentWordFromHash();
+  if (!currentWord) return;
+
+  // 记忆当前单词到本地存储
+  localStorage.setItem("playphrase_last_word", currentWord);
+
+  // 移除所有高亮
+  const listItems = document.querySelectorAll(".sidebar-word-list li");
+  listItems.forEach((li) => li.classList.remove("active-word"));
+
+  // 找到对应的单词并高亮 + 滚动定位
+  const activeLi = document.querySelector(
+    `.sidebar-word-list li[data-word="${currentWord}"]`,
+  );
+  if (activeLi) {
+    activeLi.classList.add("active-word");
+    // 自动滚动到侧边栏中间位置
+    activeLi.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+// 页面加载时的记忆恢复机制
+function restoreLastWord() {
+  const lastWord = localStorage.getItem("playphrase_last_word");
+  const currentHash = window.location.hash;
+
+  // 如果缓存里有单词，并且当前没有指定搜索（比如刚打开首页）
+  if (lastWord && (!currentHash || !currentHash.includes("q="))) {
+    window.location.hash = `/search?q=${lastWord}&language=en`;
+  }
+}
+
+// 创建侧边栏
 function createSidebar() {
   if (document.getElementById("custom-word-sidebar")) return;
 
   const sidebar = document.createElement("div");
   sidebar.id = "custom-word-sidebar";
 
-  // 生成单词 `<li>` 列表
   const wordsHtml = wordList
     .map((word) => `<li data-word="${word}">${word}</li>`)
     .join("");
@@ -265,44 +312,31 @@ function createSidebar() {
   `;
   document.body.appendChild(sidebar);
 
-  // 绑定关闭按钮事件
   document.getElementById("sidebar-close").addEventListener("click", () => {
     sidebar.classList.remove("show");
   });
 
-  // 绑定单词点击跳转事件 (事件委托机制)
   document
     .getElementById("sidebar-word-list")
     .addEventListener("click", (e) => {
       if (e.target.tagName === "LI") {
         const targetWord = e.target.getAttribute("data-word");
-
-        // 1. 先改变 URL 触发基础路由
         window.location.hash = `/search?q=${targetWord}&language=en`;
 
-        // 2. 增强版：模拟用户真实输入的“全套动作”
         setTimeout(() => {
-          // 尽量精准定位搜索框（以防页面顶部多出其他不可见 input）
           const searchInput =
             document.querySelector("input[type='text']") ||
             document.querySelector("input");
-
           if (searchInput) {
-            // 第一步：必须先让输入框获得焦点，骗过浏览器的 activeElement 检测
             searchInput.focus();
-
-            // 第二步：绕过 React 劫持，强行注入 value
             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
               window.HTMLInputElement.prototype,
               "value",
             ).set;
             nativeInputValueSetter.call(searchInput, targetWord);
-
-            // 第三步：连发 input 和 change 事件
             searchInput.dispatchEvent(new Event("input", { bubbles: true }));
             searchInput.dispatchEvent(new Event("change", { bubbles: true }));
 
-            // 第四步：模拟完整的回车键生命周期 (按下、输入、抬起)
             const enterConfig = {
               key: "Enter",
               code: "Enter",
@@ -319,40 +353,33 @@ function createSidebar() {
             );
             searchInput.dispatchEvent(new KeyboardEvent("keyup", enterConfig));
 
-            // 第五步：终极保险，如果它是包裹在 form 里的，直接强行提交表单
             const form = searchInput.closest("form");
-            if (form) {
+            if (form)
               form.dispatchEvent(
                 new Event("submit", { bubbles: true, cancelable: true }),
               );
-            }
-
-            // 完事后取消焦点，保持页面清爽
             searchInput.blur();
           }
-        }, 100); // 将延迟稍微增加到 100ms，给框架响应 URL 变化的时间
+        }, 100);
 
-        // 侧边栏点完后自动收起
         document.getElementById("custom-word-sidebar").classList.remove("show");
       }
     });
-}
 
+  // 侧边栏创建完成后，执行一次同步
+  syncSidebarWithURL();
+}
 // 在导航栏插入新图标
 function injectToolbarButton() {
-  // 如果已经插入过了，就跳过
   if (document.getElementById("custom-sidebar-btn")) return;
 
-  // 寻找 Settings 按钮的容器
   const settingsIconContainer = document.querySelector(
     '.filter-input-icon[aria-label="Settings"]',
   );
   if (!settingsIconContainer) return;
-
   const settingsLi = settingsIconContainer.closest("li");
   if (!settingsLi) return;
 
-  // 创建我们的新 <li> 图标元素
   const newLi = document.createElement("li");
   newLi.className = "input-button";
   newLi.id = "custom-sidebar-btn";
@@ -361,23 +388,30 @@ function injectToolbarButton() {
       <i class="material-symbols-outlined" style="color: #64b5f6;">format_list_bulleted</i>
     </div>
   `;
-
-  // 插入到 Settings 的前面
   settingsLi.parentNode.insertBefore(newLi, settingsLi);
 
-  // 点击图标弹出侧边栏
   newLi.addEventListener("click", () => {
     const sidebar = document.getElementById("custom-word-sidebar");
     if (sidebar) {
       sidebar.classList.toggle("show");
+      // 每次点开侧边栏时，确保滚动位置正确
+      if (sidebar.classList.contains("show")) {
+        syncSidebarWithURL();
+      }
     }
   });
 }
-
 // ==========================================
 // 3. 动态监视 DOM 变化，确保图标成功插入
 // ==========================================
 // 因为网页是动态加载的，我们要监视 DOM，一旦 Settings 渲染出来，我们就插入。
+
+// 监听网址哈希变化（捕捉网站自带的搜索行为）
+window.addEventListener("hashchange", syncSidebarWithURL);
+
+// 尝试恢复上一次的单词
+restoreLastWord();
+
 const observer = new MutationObserver((mutations, obs) => {
   const settingsIconContainer = document.querySelector(
     '.filter-input-icon[aria-label="Settings"]',
@@ -387,6 +421,4 @@ const observer = new MutationObserver((mutations, obs) => {
     injectToolbarButton();
   }
 });
-
-// 开始监听 body 的变化
 observer.observe(document.body, { childList: true, subtree: true });

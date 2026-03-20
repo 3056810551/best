@@ -15,6 +15,16 @@
   display: flex !important; /* 鎭㈠ flex 甯冨眬 */
 }
 
+.video-overlay-stopped {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.side-container-flex {
+  display: none !important;
+}
+
 .filter-input-icons > li:nth-child(2),
 .filter-input-icons > li:nth-child(3),
 .filter-input-icons > li:nth-child(4),
@@ -25,8 +35,8 @@
   display: none !important;
 }
 
-.side-menu-page-container .side-menu,
+/* .side-menu-page-container .side-menu,
 .video-overlay.stopped .side-container-flex .side-menu,
 .video-overlay-stopped .side-container-flex .side-menu {
   opacity: 1 !important;
-}
+} */
