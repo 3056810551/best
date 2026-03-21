@@ -418,7 +418,20 @@ function applyStyles(mainSize, transSize, headerVisible) {
     header { display: ${headerVisible ? "flex" : "none"} !important; }
     .karaoke-page-content { display: inline-block !important; box-shadow: rgba(0, 0, 0, 0.55) 0px 0px 14px !important; border-radius: 0.35em !important; font-size: ${mainSize}rem !important; padding: 0.6em 0.4em 0.4em 0.4em !important; margin-bottom: 0.3em !important; line-height: 1.4 !important; max-width: 99% !important; margin-left: auto !important; margin-right: auto !important; }
     .karaoke-page-content * { font-size: ${mainSize}rem !important; }
-    .karaoke-page-content .s-word { text-shadow: none !important; padding: 0 0.15em !important; word-spacing: -0.1em !important; line-height: inherit !important; }
+    /* 清除原本行内元素的文字阴影，防止和外框阴影打架 */
+    .karaoke-page-content .s-word { 
+      text-shadow: none !important;
+      
+      /* 【修复最后一个单词掉行的核心】
+         将 inline-block 强制改为 inline，让它们变成纯粹的一行连续文本 */
+      display: inline !important; 
+      white-space: pre-wrap !important; 
+      
+      /* 既然变成了连续文本，原网站那些为了强行拼凑间距的黑魔法（负间距、左右留白）就不需要了，直接清零，用文本自带的空格最自然 */
+      padding: 0 !important; 
+      word-spacing: normal !important; 
+      line-height: inherit !important;
+    }
     .translate { font-size: ${transSize}rem !important; color: #ffffff !important; }
     .translate-text { font-size: ${transSize}rem !important; line-height: 1.4 !important; padding: 0.3em 0 !important; }
     .copy-button { width: auto !important; height: auto !important; padding: 0 0.2em !important; }
