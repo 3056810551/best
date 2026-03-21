@@ -706,3 +706,21 @@ const observer = new MutationObserver((mutations, obs) => {
   }
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+// 核心逻辑：利用事件冒泡的“捕获阶段 (true)”，在目标网站的脚本执行前拦截右键事件
+window.addEventListener(
+  "contextmenu",
+  function (e) {
+    // 阻止事件继续向下传递给网站自己的 JS 代码
+    e.stopPropagation();
+
+    // 顺手解除可能存在的选取限制（防复制）
+    document.body.style.userSelect = "auto";
+    document.body.style.webkitUserSelect = "auto";
+  },
+  true,
+);
+
+// 清除一些老旧的 DOM 0 级绑定
+document.oncontextmenu = null;
+window.oncontextmenu = null;
