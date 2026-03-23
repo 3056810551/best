@@ -5,6 +5,14 @@ let targetLoopCount = 4;
 let currentLoopCount = 0;
 let wordData = [];
 let allWordsList = [];
+let sidebarSearchKeyword = "";
+let sidebarSelectedPage = "all";
+let sidebarRenderedGroupCount = 0;
+let sidebarFilteredGroups = [];
+let sidebarLazyObserver = null;
+let sidebarSearchDebounceTimer = null;
+
+const SIDEBAR_GROUP_BATCH_SIZE = 6;
 
 // 默认单词模板 (如果用户首次安装无数据时的占位)
 const defaultWordData = [
@@ -84,6 +92,28 @@ function groupWordDataByPage(data) {
   return [...pageMap.entries()];
 }
 
+function getAvailablePages() {
+  return [...new Set(wordData.map((item) => item.page))].sort((a, b) => a - b);
+}
+
+function getSidebarFilteredGroups() {
+  const keyword = sidebarSearchKeyword.trim().toLowerCase();
+  const selectedPage =
+    sidebarSelectedPage === "all" ? null : Number(sidebarSelectedPage);
+
+  const filteredData = wordData.filter((item) => {
+    const matchPage = selectedPage === null || item.page === selectedPage;
+    const matchKeyword =
+      keyword === "" ||
+      item.word.toLowerCase().includes(keyword) ||
+      item.meaning.toLowerCase().includes(keyword);
+
+    return matchPage && matchKeyword;
+  });
+
+  return groupWordDataByPage(filteredData);
+}
+
 function escapeHTML(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -91,6 +121,13 @@ function escapeHTML(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function destroySidebarLazyObserver() {
+  if (sidebarLazyObserver) {
+    sidebarLazyObserver.disconnect();
+    sidebarLazyObserver = null;
+  }
 }
 
 // ==========================================
@@ -259,30 +296,33 @@ function createSidebar() {
   // 如果已存在旧侧边栏，先移除再重建 (用于更新数据时)
   let sidebar = document.getElementById("custom-word-sidebar");
   let wasShowing = false;
+  const availablePages = getAvailablePages();
+
+  destroySidebarLazyObserver();
+  clearTimeout(sidebarSearchDebounceTimer);
 
   if (sidebar) {
     wasShowing = sidebar.classList.contains("show");
     sidebar.remove();
   }
 
+  if (
+    sidebarSelectedPage !== "all" &&
+    !availablePages.includes(Number(sidebarSelectedPage))
+  ) {
+    sidebarSelectedPage = "all";
+  }
+
   sidebar = document.createElement("div");
   sidebar.id = "custom-word-sidebar";
   if (wasShowing) sidebar.classList.add("show"); // 保持之前的打开状态
 
-  let wordsHtml = "";
-  // 将新的扁平单词结构按 page 分页渲染，便于在侧边栏快速定位
-  groupWordDataByPage(wordData).forEach(([page, pageWords]) => {
-    wordsHtml += `<li class="unit-header">Page ${escapeHTML(page)}</li>`;
-    pageWords.forEach((item) => {
-      wordsHtml += `
-        <li class="word-item" data-word="${escapeHTML(item.word)}">
-          <span class="word-index">${escapeHTML(item.index)}</span>
-          <span class="word-main">${escapeHTML(item.word)}</span>
-          <span class="word-meaning">${escapeHTML(item.meaning)}</span>
-        </li>
-      `;
-    });
-  });
+  const pageOptionsHtml = availablePages
+    .map(
+      (page) =>
+        `<option value="${escapeHTML(page)}"${String(page) === String(sidebarSelectedPage) ? " selected" : ""}>Page ${escapeHTML(page)}</option>`,
+    )
+    .join("");
 
   sidebar.innerHTML = `
     <div class="sidebar-header">
@@ -290,9 +330,21 @@ function createSidebar() {
         <span>单词本 (自动播放)</span>
         <span class="material-symbols-outlined sidebar-close-btn" id="sidebar-close" style="cursor:pointer;">close</span>
       </div>
+      <div class="sidebar-toolbar">
+        <input
+          id="sidebar-search-input"
+          class="sidebar-search-input"
+          type="text"
+          placeholder="搜索单词或释义"
+          value="${escapeHTML(sidebarSearchKeyword)}"
+        />
+        <select id="sidebar-page-filter" class="sidebar-page-filter">
+          <option value="all">全部 Page</option>
+          ${pageOptionsHtml}
+        </select>
+      </div>
     </div>
     <ul class="sidebar-word-list" id="sidebar-word-list">
-      ${wordsHtml}
     </ul>
   `;
   document.body.appendChild(sidebar);
@@ -310,6 +362,119 @@ function createSidebar() {
         jumpToWord(targetWord);
       }
     });
+
+  // 搜索与 page 筛选统一走增量渲染，避免大数据量时一次性创建过多 DOM
+  document
+    .getElementById("sidebar-search-input")
+    .addEventListener("input", (event) => {
+      const nextKeyword = event.target.value;
+      clearTimeout(sidebarSearchDebounceTimer);
+      sidebarSearchDebounceTimer = setTimeout(() => {
+        sidebarSearchKeyword = nextKeyword;
+        renderSidebarList(true);
+        syncSidebarWithURL();
+      }, 160);
+    });
+
+  document
+    .getElementById("sidebar-page-filter")
+    .addEventListener("change", (event) => {
+      sidebarSelectedPage = event.target.value;
+      renderSidebarList(true);
+      syncSidebarWithURL();
+    });
+
+  renderSidebarList(true);
+}
+
+function renderSidebarList(reset = false) {
+  const wordList = document.getElementById("sidebar-word-list");
+  if (!wordList) return;
+
+  if (reset) {
+    destroySidebarLazyObserver();
+    sidebarFilteredGroups = getSidebarFilteredGroups();
+    sidebarRenderedGroupCount = 0;
+    wordList.innerHTML = "";
+  }
+
+  const nextGroups = sidebarFilteredGroups.slice(
+    sidebarRenderedGroupCount,
+    sidebarRenderedGroupCount + SIDEBAR_GROUP_BATCH_SIZE,
+  );
+
+  if (nextGroups.length === 0) {
+    if (sidebarRenderedGroupCount === 0) {
+      wordList.innerHTML =
+        '<li class="sidebar-empty-state">没有找到匹配的单词</li>';
+    }
+    return;
+  }
+
+  let batchHtml = "";
+  // 懒加载时按 page 分批追加，减少首次打开时的 DOM 数量和内存占用
+  nextGroups.forEach(([page, pageWords]) => {
+    batchHtml += `<li class="unit-header">Page ${escapeHTML(page)}</li>`;
+    pageWords.forEach((item) => {
+      batchHtml += `
+        <li class="word-item" data-word="${escapeHTML(item.word)}">
+          <span class="word-index">${escapeHTML(item.index)}</span>
+          <span class="word-main">${escapeHTML(item.word)}</span>
+          <span class="word-meaning">${escapeHTML(item.meaning)}</span>
+        </li>
+      `;
+    });
+  });
+
+  wordList.insertAdjacentHTML("beforeend", batchHtml);
+  sidebarRenderedGroupCount += nextGroups.length;
+  setupSidebarLazyLoading();
+}
+
+function setupSidebarLazyLoading() {
+  const wordList = document.getElementById("sidebar-word-list");
+  if (!wordList) return;
+
+  destroySidebarLazyObserver();
+  const oldSentinel = document.getElementById("sidebar-lazy-sentinel");
+  if (oldSentinel) oldSentinel.remove();
+
+  if (sidebarRenderedGroupCount >= sidebarFilteredGroups.length) return;
+
+  const sentinel = document.createElement("li");
+  sentinel.id = "sidebar-lazy-sentinel";
+  sentinel.className = "sidebar-lazy-sentinel";
+  sentinel.textContent = "继续下滑加载更多...";
+  wordList.appendChild(sentinel);
+
+  sidebarLazyObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        renderSidebarList(false);
+        syncSidebarWithURL();
+      }
+    },
+    {
+      root: wordList,
+      threshold: 0.1,
+    },
+  );
+
+  sidebarLazyObserver.observe(sentinel);
+}
+
+function ensureWordVisibleInSidebar(targetWord) {
+  if (!targetWord) return;
+
+  const activeGroupIndex = sidebarFilteredGroups.findIndex(([, pageWords]) =>
+    pageWords.some((item) => item.word === targetWord),
+  );
+
+  if (activeGroupIndex === -1) return;
+
+  while (sidebarRenderedGroupCount <= activeGroupIndex) {
+    renderSidebarList(false);
+  }
 }
 
 function createMeaningOverlay() {
@@ -393,6 +558,11 @@ function applyStyles(mainSize, transSize, headerVisible) {
     #custom-word-sidebar.show { right: 0; box-shadow: -10px 0 30px rgba(0,0,0,0.5); }
     .sidebar-header { padding: 20px; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .sidebar-header-top { display: flex; justify-content: space-between; align-items: center; }
+    .sidebar-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 10px; margin-top: 14px; }
+    .sidebar-search-input, .sidebar-page-filter { width: 100%; min-width: 0; height: 40px; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(255,255,255,0.08); color: white; padding: 0 12px; outline: none; }
+    .sidebar-search-input::placeholder { color: rgba(255,255,255,0.45); }
+    .sidebar-search-input:focus, .sidebar-page-filter:focus { border-color: rgba(100,181,246,0.65); box-shadow: 0 0 0 3px rgba(100,181,246,0.16); }
+    .sidebar-page-filter option { color: #111827; }
     .sidebar-word-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; scroll-behavior: smooth; }
     .sidebar-word-list .unit-header { padding: 10px 20px; font-size: 0.85rem; background: rgba(0,0,0,1); text-transform: uppercase; position: sticky; top: 0; z-index: 10; }
     .sidebar-word-list li.word-item { display: grid; grid-template-columns: 52px minmax(90px, 120px) 1fr; gap: 12px; align-items: start; padding: 12px 20px 12px 30px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); transition: all 0.2s; }
@@ -401,6 +571,7 @@ function applyStyles(mainSize, transSize, headerVisible) {
     .sidebar-word-list .word-index { display: inline-flex; justify-content: center; min-width: 36px; padding: 2px 8px; border-radius: 999px; background: rgba(100,181,246,0.16); color: #bbdefb; font-size: 0.8rem; font-weight: 700; line-height: 1.5; }
     .sidebar-word-list .word-main { font-size: 0.95rem; font-weight: 700; line-height: 1.5; word-break: break-word; }
     .sidebar-word-list .word-meaning { color: rgba(255,255,255,0.78); font-size: 0.86rem; line-height: 1.6; word-break: break-word; }
+    .sidebar-empty-state, .sidebar-lazy-sentinel { padding: 18px 20px; text-align: center; color: rgba(255,255,255,0.62); font-size: 0.9rem; }
 
     /* 左上角显示当前 targetWord 的页码 / 序号 / 中文释义 */
     #custom-word-meaning-overlay { position: fixed; top: 16px; left: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 16px; background: rgba(12, 18, 28, 0.72); border: 1px solid rgba(255,255,255,0.16); backdrop-filter: blur(14px); color: #ffffff; z-index: 999998; box-shadow: 0 12px 28px rgba(0,0,0,0.3); display: none; }
@@ -445,6 +616,8 @@ function syncSidebarWithURL() {
     ".sidebar-word-list li.word-item",
   );
   listItems.forEach((li) => li.classList.remove("active-word"));
+
+  ensureWordVisibleInSidebar(currentWord);
 
   const activeSelectorWord =
     typeof CSS !== "undefined" && typeof CSS.escape === "function"
