@@ -35,8 +35,19 @@
   display: none !important;
 }
 
-/* .side-menu-page-container .side-menu,
-.video-overlay.stopped .side-container-flex .side-menu,
-.video-overlay-stopped .side-container-flex .side-menu {
-  opacity: 1 !important;
-} */
+/* ✨ 滚动条全局美化 (Mac 纤细圆角风格) */
+::-webkit-scrollbar {
+  width: 24px !important;
+  height: 104px !important;
+}
+::-webkit-scrollbar-track {
+  background: transparent !important;
+  border-radius: 10px !important;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3) !important;
+  border-radius: 10px !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6) !important;
+}
