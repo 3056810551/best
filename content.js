@@ -185,7 +185,10 @@ function applyMeaningOverlayPosition() {
 }
 
 function handleMeaningOverlayPointerMove(event) {
-  if (!meaningOverlayDragState || event.pointerId !== meaningOverlayDragState.pointerId)
+  if (
+    !meaningOverlayDragState ||
+    event.pointerId !== meaningOverlayDragState.pointerId
+  )
     return;
 
   const overlay = document.getElementById("custom-word-meaning-overlay");
@@ -204,7 +207,10 @@ function handleMeaningOverlayPointerMove(event) {
 }
 
 function finishMeaningOverlayDrag(event) {
-  if (!meaningOverlayDragState || event.pointerId !== meaningOverlayDragState.pointerId)
+  if (
+    !meaningOverlayDragState ||
+    event.pointerId !== meaningOverlayDragState.pointerId
+  )
     return;
 
   const overlay = document.getElementById("custom-word-meaning-overlay");
