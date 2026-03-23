@@ -2,6 +2,9 @@
   const mainInput = document.getElementById("mainSize");
   const transInput = document.getElementById("transSize");
   const headerVisibleInput = document.getElementById("headerVisible");
+  const meaningOverlayInFullscreenInput = document.getElementById(
+    "meaningOverlayInFullscreen",
+  );
   const loopInput = document.getElementById("loopCount");
 
   const mainVal = document.getElementById("mainVal");
@@ -52,12 +55,14 @@
       mainSize: "1.875",
       transSize: "1.5",
       headerVisible: true,
+      meaningOverlayInFullscreen: true,
       targetLoopCount: 3,
     },
     (data) => {
       mainInput.value = data.mainSize;
       transInput.value = data.transSize;
       headerVisibleInput.checked = data.headerVisible;
+      meaningOverlayInFullscreenInput.checked = data.meaningOverlayInFullscreen;
       loopInput.value = data.targetLoopCount;
 
       mainVal.textContent = data.mainSize;
@@ -73,6 +78,8 @@
     const mainSize = mainInput.value;
     const transSize = transInput.value;
     const headerVisible = headerVisibleInput.checked;
+    const meaningOverlayInFullscreen =
+      meaningOverlayInFullscreenInput.checked;
     const targetLoopCount = parseInt(loopInput.value, 10);
 
     mainVal.textContent = mainSize;
@@ -84,6 +91,7 @@
       mainSize,
       transSize,
       headerVisible,
+      meaningOverlayInFullscreen,
       targetLoopCount,
     });
 
@@ -98,6 +106,10 @@
         transSize,
         headerVisible,
       });
+      chrome.tabs.sendMessage(tabs[0].id, {
+        action: "updateMeaningOverlayFullscreen",
+        meaningOverlayInFullscreen,
+      });
       // 更新循环次数
       chrome.tabs.sendMessage(tabs[0].id, {
         action: "updateLoopCount",
@@ -110,6 +122,7 @@
   mainInput.addEventListener("input", updateSettings);
   transInput.addEventListener("input", updateSettings);
   headerVisibleInput.addEventListener("change", updateSettings);
+  meaningOverlayInFullscreenInput.addEventListener("change", updateSettings);
   loopInput.addEventListener("input", updateSettings);
 
   // ==========================================

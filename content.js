@@ -6,6 +6,7 @@ let currentLoopCount = 0;
 let wordData = [];
 let allWordsList = [];
 let meaningOverlayPosition = { left: 16, top: 16 };
+let meaningOverlayInFullscreen = true;
 let meaningOverlayDragState = null;
 let sidebarSearchKeyword = "";
 let sidebarSelectedPage = "all";
@@ -171,8 +172,38 @@ function saveMeaningOverlayPosition() {
   });
 }
 
+function getMeaningOverlayHost() {
+  return (
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.body ||
+    document.documentElement
+  );
+}
+
+function ensureMeaningOverlayHost(overlay) {
+  if (!overlay) return null;
+
+  const host = getMeaningOverlayHost();
+  if (host && overlay.parentNode !== host) {
+    host.appendChild(overlay);
+  }
+
+  return overlay;
+}
+
+function isFullscreenActive() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function shouldShowMeaningOverlay() {
+  return meaningOverlayInFullscreen || !isFullscreenActive();
+}
+
 function applyMeaningOverlayPosition() {
-  const overlay = document.getElementById("custom-word-meaning-overlay");
+  const overlay = ensureMeaningOverlayHost(
+    document.getElementById("custom-word-meaning-overlay"),
+  );
   if (!overlay) return;
 
   const clampedPosition = clampMeaningOverlayPosition(
@@ -427,12 +458,14 @@ chrome.storage.sync.get(
     headerVisible: true,
     targetLoopCount: 3,
     meaningOverlayPosition: DEFAULT_MEANING_OVERLAY_POSITION,
+    meaningOverlayInFullscreen: true,
   },
   (data) => {
     targetLoopCount = data.targetLoopCount;
     meaningOverlayPosition = normalizeMeaningOverlayPosition(
       data.meaningOverlayPosition,
     );
+    meaningOverlayInFullscreen = data.meaningOverlayInFullscreen;
     applyMeaningOverlayPosition();
 
     if (typeof decorateFavoriteCards === "function") decorateFavoriteCards();
@@ -462,6 +495,10 @@ chrome.storage.local.get({ wordData: defaultWordData }, (data) => {
 chrome.runtime.onMessage.addListener((request) => {
   if (request.action === "updateStyles") {
     applyStyles(request.mainSize, request.transSize, request.headerVisible);
+  } else if (request.action === "updateMeaningOverlayFullscreen") {
+    meaningOverlayInFullscreen = request.meaningOverlayInFullscreen !== false;
+    createMeaningOverlay();
+    syncSidebarWithURL();
   } else if (request.action === "updateLoopCount") {
     targetLoopCount = request.targetLoopCount;
     currentLoopCount = 0; // 修改配置后立即重置当前计数
@@ -727,9 +764,9 @@ function createMeaningOverlay() {
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = "custom-word-meaning-overlay";
-    document.body.appendChild(overlay);
   }
 
+  ensureMeaningOverlayHost(overlay);
   setupMeaningOverlayDrag(overlay);
   applyMeaningOverlayPosition();
 }
@@ -879,7 +916,12 @@ function syncSidebarWithURL() {
     <div class="word-meta">${escapeHTML(activeWordEntry.word)}</div>
     <div class="meaning-text">${escapeHTML(activeWordEntry.meaning)}</div>
   `;
+  if (!shouldShowMeaningOverlay()) {
+    overlay.classList.remove("show");
+    return;
+  }
   overlay.classList.add("show");
+  applyMeaningOverlayPosition();
 }
 
 function restoreLastWord() {
@@ -892,6 +934,14 @@ function restoreLastWord() {
 window.addEventListener("hashchange", syncSidebarWithURL);
 window.addEventListener("resize", () => {
   applyMeaningOverlayPosition();
+});
+document.addEventListener("fullscreenchange", () => {
+  createMeaningOverlay();
+  syncSidebarWithURL();
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  createMeaningOverlay();
+  syncSidebarWithURL();
 });
 
 const observer = new MutationObserver(() => {
