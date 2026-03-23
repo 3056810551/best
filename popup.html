@@ -24,6 +24,10 @@
         --accent-hover: #2563eb;
         --accent-soft: rgba(59, 130, 246, 0.12);
         --accent-text: #1d4ed8;
+        /* 危险色（红色） */
+        --danger: #ef4444;
+        --danger-soft: rgba(239, 68, 68, 0.1);
+        --danger-hover: rgba(239, 68, 68, 0.18);
         /* 玻璃阴影 */
         --glass-shadow: 0 10px 32px rgba(30, 41, 59, 0.08);
         --inner-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
@@ -35,19 +39,19 @@
 
       /* ✨ 滚动条全局美化 (Mac 纤细圆角风格) */
       ::-webkit-scrollbar {
-        width: 6px; /* 纵向滚动条宽度 */
-        height: 6px; /* 横向滚动条高度 */
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: transparent; /* 轨道透明，透出毛玻璃背景 */
+        background: transparent;
         border-radius: 10px;
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(148, 163, 184, 0.3); /* 柔和的半透明浅灰 */
+        background: rgba(148, 163, 184, 0.3);
         border-radius: 10px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(148, 163, 184, 0.6); /* 鼠标悬浮时颜色加深 */
+        background: rgba(148, 163, 184, 0.6);
       }
 
       body {
@@ -58,7 +62,6 @@
           -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
           "Microsoft YaHei", sans-serif;
         color: var(--text-main);
-        /* 柔和的现代网格渐变背景，用于衬托毛玻璃 */
         background-color: #f1f5f9;
         background-image:
           radial-gradient(circle at 0% 0%, #e0f2fe 0%, transparent 50%),
@@ -68,7 +71,6 @@
         background-attachment: fixed;
       }
 
-      /* 主毛玻璃面板 */
       .panel {
         padding: 20px;
         border: 1px solid var(--border);
@@ -103,7 +105,6 @@
         line-height: 1.5;
       }
 
-      /* 内部控制块同样采用玻璃态 */
       .control-group {
         margin-bottom: 14px;
         padding: 16px;
@@ -135,7 +136,6 @@
         font-size: 14px;
         font-weight: 600;
       }
-
       .label-sub {
         display: block;
         margin-top: 4px;
@@ -143,7 +143,6 @@
         font-size: 12px;
       }
 
-      /* 徽章样式 */
       .range-value {
         min-width: 58px;
         padding: 6px 12px;
@@ -156,7 +155,6 @@
         box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.1);
       }
 
-      /* 控件着色与调整 */
       input[type="range"] {
         width: 100%;
         margin-top: 14px;
@@ -175,7 +173,6 @@
         cursor: pointer;
       }
 
-      /* 上传控件区域样式 */
       .radio-group {
         display: flex;
         gap: 16px;
@@ -183,14 +180,12 @@
         font-size: 13px;
         font-weight: 500;
       }
-
       .radio-group label {
         display: flex;
         align-items: center;
         gap: 6px;
         cursor: pointer;
       }
-
       input[type="radio"] {
         accent-color: var(--accent);
         cursor: pointer;
@@ -198,7 +193,6 @@
         height: 16px;
       }
 
-      /* 美化原生文件上传按钮 */
       input[type="file"] {
         width: 100%;
         font-size: 13px;
@@ -223,9 +217,14 @@
         border-color: #cbd5e1;
       }
 
-      /* 核心主按钮 */
+      /* 按钮组排版 */
+      .action-group {
+        display: flex;
+        gap: 10px;
+      }
+
       .primary-btn {
-        width: 100%;
+        flex: 1; /* 主按钮占据剩余空间 */
         padding: 12px;
         background: var(--accent);
         color: #ffffff;
@@ -251,6 +250,26 @@
         box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
       }
 
+      /* 危险按钮（清空） */
+      .danger-btn {
+        padding: 12px 16px;
+        background: var(--danger-soft);
+        color: var(--danger);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .danger-btn:hover {
+        background: var(--danger-hover);
+        transform: translateY(-1px);
+      }
+      .danger-btn:active {
+        transform: translateY(1px);
+      }
+
       #uploadStatus {
         font-size: 12px;
         font-weight: 600;
@@ -258,6 +277,7 @@
         margin-top: 10px;
         text-align: center;
         height: 16px;
+        transition: color 0.3s;
       }
     </style>
   </head>
@@ -377,12 +397,23 @@
           id="wordDataFile"
           accept=".json"
         />
-        <button
-          id="uploadBtn"
-          class="primary-btn"
-        >
-          上传并保存数据
-        </button>
+
+        <!-- ✨ 按钮组排版 ✨ -->
+        <div class="action-group">
+          <button
+            id="uploadBtn"
+            class="primary-btn"
+          >
+            上传并保存
+          </button>
+          <button
+            id="clearBtn"
+            class="danger-btn"
+          >
+            清空
+          </button>
+        </div>
+
         <div id="uploadStatus"></div>
       </section>
     </main>
