@@ -5,6 +5,8 @@ let targetLoopCount = 4;
 let currentLoopCount = 0;
 let wordData = [];
 let allWordsList = [];
+let meaningOverlayPosition = { left: 16, top: 16 };
+let meaningOverlayDragState = null;
 let sidebarSearchKeyword = "";
 let sidebarSelectedPage = "all";
 let sidebarFilteredGroups = [];
@@ -24,6 +26,7 @@ let sidebarLastRenderedRange = {
 const SIDEBAR_HEADER_ROW_HEIGHT = 40;
 const SIDEBAR_ITEM_ROW_HEIGHT = 88;
 const SIDEBAR_VIRTUAL_OVERSCAN = 8;
+const DEFAULT_MEANING_OVERLAY_POSITION = { left: 16, top: 16 };
 
 // 默认单词模板 (如果用户首次安装无数据时的占位)
 const defaultWordData = [
@@ -131,6 +134,116 @@ function escapeHTML(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function normalizeMeaningOverlayPosition(position) {
+  if (
+    !position ||
+    typeof position.left !== "number" ||
+    !Number.isFinite(position.left) ||
+    typeof position.top !== "number" ||
+    !Number.isFinite(position.top)
+  ) {
+    return { ...DEFAULT_MEANING_OVERLAY_POSITION };
+  }
+
+  return {
+    left: position.left,
+    top: position.top,
+  };
+}
+
+function clampMeaningOverlayPosition(position, overlayRect) {
+  const overlayWidth = overlayRect?.width || 0;
+  const overlayHeight = overlayRect?.height || 0;
+  const maxLeft = Math.max(0, window.innerWidth - overlayWidth);
+  const maxTop = Math.max(0, window.innerHeight - overlayHeight);
+
+  return {
+    left: Math.min(Math.max(0, position.left), maxLeft),
+    top: Math.min(Math.max(0, position.top), maxTop),
+  };
+}
+
+function saveMeaningOverlayPosition() {
+  chrome.storage.sync.set({
+    meaningOverlayPosition,
+  });
+}
+
+function applyMeaningOverlayPosition() {
+  const overlay = document.getElementById("custom-word-meaning-overlay");
+  if (!overlay) return;
+
+  const clampedPosition = clampMeaningOverlayPosition(
+    meaningOverlayPosition,
+    overlay.getBoundingClientRect(),
+  );
+  meaningOverlayPosition = clampedPosition;
+  overlay.style.left = `${clampedPosition.left}px`;
+  overlay.style.top = `${clampedPosition.top}px`;
+}
+
+function handleMeaningOverlayPointerMove(event) {
+  if (!meaningOverlayDragState || event.pointerId !== meaningOverlayDragState.pointerId)
+    return;
+
+  const overlay = document.getElementById("custom-word-meaning-overlay");
+  if (!overlay) return;
+
+  const nextPosition = clampMeaningOverlayPosition(
+    {
+      left: event.clientX - meaningOverlayDragState.offsetX,
+      top: event.clientY - meaningOverlayDragState.offsetY,
+    },
+    overlay.getBoundingClientRect(),
+  );
+
+  meaningOverlayPosition = nextPosition;
+  applyMeaningOverlayPosition();
+}
+
+function finishMeaningOverlayDrag(event) {
+  if (!meaningOverlayDragState || event.pointerId !== meaningOverlayDragState.pointerId)
+    return;
+
+  const overlay = document.getElementById("custom-word-meaning-overlay");
+  if (overlay && typeof overlay.releasePointerCapture === "function") {
+    try {
+      overlay.releasePointerCapture(event.pointerId);
+    } catch (err) {
+      console.warn("[PlayPhrase] releasePointerCapture 失败:", err);
+    }
+  }
+
+  meaningOverlayDragState = null;
+  saveMeaningOverlayPosition();
+}
+
+function setupMeaningOverlayDrag(overlay) {
+  if (!overlay || overlay.dataset.dragEnabled === "true") return;
+
+  // 释义卡片支持拖拽，拖拽结束后将当前位置写入 sync，实现跨刷新记忆
+  overlay.dataset.dragEnabled = "true";
+  overlay.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+
+    const overlayRect = overlay.getBoundingClientRect();
+    meaningOverlayDragState = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - overlayRect.left,
+      offsetY: event.clientY - overlayRect.top,
+    };
+
+    if (typeof overlay.setPointerCapture === "function") {
+      overlay.setPointerCapture(event.pointerId);
+    }
+    event.preventDefault();
+  });
+
+  overlay.addEventListener("pointermove", handleMeaningOverlayPointerMove);
+  overlay.addEventListener("pointerup", finishMeaningOverlayDrag);
+  overlay.addEventListener("pointercancel", finishMeaningOverlayDrag);
 }
 
 function destroySidebarVirtualRenderFrame() {
@@ -307,9 +420,14 @@ chrome.storage.sync.get(
     transSize: "1.5",
     headerVisible: true,
     targetLoopCount: 3,
+    meaningOverlayPosition: DEFAULT_MEANING_OVERLAY_POSITION,
   },
   (data) => {
     targetLoopCount = data.targetLoopCount;
+    meaningOverlayPosition = normalizeMeaningOverlayPosition(
+      data.meaningOverlayPosition,
+    );
+    applyMeaningOverlayPosition();
 
     if (typeof decorateFavoriteCards === "function") decorateFavoriteCards();
     applyStyles(data.mainSize, data.transSize, data.headerVisible);
@@ -605,6 +723,9 @@ function createMeaningOverlay() {
     overlay.id = "custom-word-meaning-overlay";
     document.body.appendChild(overlay);
   }
+
+  setupMeaningOverlayDrag(overlay);
+  applyMeaningOverlayPosition();
 }
 
 function injectToolbarButton() {
@@ -679,7 +800,7 @@ function applyStyles(mainSize, transSize, headerVisible) {
     .sidebar-header { padding: 20px; font-size: 0.8rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .sidebar-header-top { display: flex; justify-content: space-between; align-items: center; }
     .sidebar-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 10px; margin-top: 14px; }
-    .sidebar-search-input, .sidebar-page-filter { width: 100%; min-width: 0; height: 40px; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(255,255,255,0.08); color: white; padding: 0 12px; outline: none; }
+    .sidebar-search-input, .sidebar-page-filter { width: 100%; min-width: 0; height: 40px; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(255,255,255,0.08); color: white; padding: 0 10px; outline: none; }
     .sidebar-search-input::placeholder { color: rgba(255,255,255,0.45); }
     .sidebar-search-input:focus, .sidebar-page-filter:focus { border-color: rgba(100,181,246,0.65); box-shadow: 0 0 0 3px rgba(100,181,246,0.16); }
     .sidebar-page-filter option { color: #111827; }
@@ -695,7 +816,7 @@ function applyStyles(mainSize, transSize, headerVisible) {
     .sidebar-spacer { height: 0; margin: 0; padding: 0; border: 0; pointer-events: none; }
 
     /* 左上角显示当前 targetWord 的页码 / 序号 / 中文释义 */
-    #custom-word-meaning-overlay { position: fixed; top: 16px; left: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 16px; background: rgba(12, 18, 28, 0.72); border: 1px solid rgba(255,255,255,0.16); backdrop-filter: blur(14px); color: #ffffff; z-index: 999998; box-shadow: 0 12px 28px rgba(0,0,0,0.3); display: none; }
+    #custom-word-meaning-overlay { position: fixed; top: 16px; left: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 16px; background: rgba(12, 18, 28, 0.72); border: 1px solid rgba(255,255,255,0.16); backdrop-filter: blur(14px); color: #ffffff; z-index: 999998; box-shadow: 0 12px 28px rgba(0,0,0,0.3); display: none; cursor: move; user-select: none; touch-action: none; }
     #custom-word-meaning-overlay.show { display: block; }
     #custom-word-meaning-overlay .meaning-meta { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 10px; border-radius: 999px; background: rgba(100,181,246,0.16); color: #bbdefb; font-size: 0.8rem; font-weight: 700; }
     #custom-word-meaning-overlay .word-meta {  justify-content: center; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 10px; border-radius: 999px; background: rgba(251, 191, 36, 0.16); color: #fff3e0; font-size: 1.4rem; font-weight: 700; }
@@ -763,6 +884,9 @@ function restoreLastWord() {
 }
 
 window.addEventListener("hashchange", syncSidebarWithURL);
+window.addEventListener("resize", () => {
+  applyMeaningOverlayPosition();
+});
 
 const observer = new MutationObserver(() => {
   if (document.querySelector('.filter-input-icon[aria-label="Settings"]'))
