@@ -1,70 +1,391 @@
 ﻿<!doctype html>
-<html lang="zh">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Subtitle Resizer</title>
     <style>
+      :root {
+        color-scheme: light;
+        /* 玻璃面板基础色 */
+        --panel-bg: rgba(255, 255, 255, 0.65);
+        --panel-soft: rgba(255, 255, 255, 0.45);
+        /* 模拟玻璃边缘反光 */
+        --border: rgba(255, 255, 255, 0.8);
+        --border-soft: rgba(255, 255, 255, 0.5);
+        /* 字体颜色 */
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        /* 强调色（现代亮蓝） */
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --accent-soft: rgba(59, 130, 246, 0.12);
+        --accent-text: #1d4ed8;
+        /* 玻璃阴影 */
+        --glass-shadow: 0 10px 32px rgba(30, 41, 59, 0.08);
+        --inner-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      /* ✨ 滚动条全局美化 (Mac 纤细圆角风格) */
+      ::-webkit-scrollbar {
+        width: 6px; /* 纵向滚动条宽度 */
+        height: 6px; /* 横向滚动条高度 */
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; /* 轨道透明，透出毛玻璃背景 */
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.3); /* 柔和的半透明浅灰 */
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.6); /* 鼠标悬浮时颜色加深 */
+      }
+
       body {
-        width: 260px;
-        padding: 15px;
-        font-family: sans-serif;
+        width: 340px;
+        margin: 0;
+        padding: 18px;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        color: var(--text-main);
+        /* 柔和的现代网格渐变背景，用于衬托毛玻璃 */
+        background-color: #f1f5f9;
+        background-image:
+          radial-gradient(circle at 0% 0%, #e0f2fe 0%, transparent 50%),
+          radial-gradient(circle at 100% 0%, #ede9fe 0%, transparent 50%),
+          radial-gradient(circle at 100% 100%, #dbeafe 0%, transparent 50%),
+          radial-gradient(circle at 0% 100%, #f3e8ff 0%, transparent 50%);
+        background-attachment: fixed;
       }
-      h3 {
-        margin-top: 0;
-        font-size: 16px;
-        border-bottom: 1px solid #ccc;
-        padding-bottom: 8px;
+
+      /* 主毛玻璃面板 */
+      .panel {
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: var(--panel-bg);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
       }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        margin: 6px 0 20px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      /* 内部控制块同样采用玻璃态 */
       .control-group {
-        margin-bottom: 15px;
+        margin-bottom: 14px;
+        padding: 16px;
+        border: 1px solid var(--border-soft);
+        border-radius: 16px;
+        background: var(--panel-soft);
+        box-shadow:
+          var(--inner-shadow),
+          0 2px 8px rgba(0, 0, 0, 0.02);
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
       }
-      label {
-        display: flex;
-        justify-content: space-between;
-        font-size: 14px;
-        margin-bottom: 5px;
+
+      .control-group:hover {
+        background: rgba(255, 255, 255, 0.6);
       }
-      .checkbox-row {
+
+      .range-label,
+      .toggle-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 12px;
       }
-      .checkbox-row label {
-        margin-bottom: 0;
+
+      .label-main {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
       }
+
+      .label-sub {
+        display: block;
+        margin-top: 4px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      /* 徽章样式 */
+      .range-value {
+        min-width: 58px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-text);
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.1);
+      }
+
+      /* 控件着色与调整 */
       input[type="range"] {
         width: 100%;
+        margin-top: 14px;
+        accent-color: var(--accent);
+        cursor: pointer;
+        height: 4px;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        outline: none;
+      }
+
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent);
         cursor: pointer;
       }
-      input[type="checkbox"] {
+
+      /* 上传控件区域样式 */
+      .radio-group {
+        display: flex;
+        gap: 16px;
+        margin: 12px 0;
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .radio-group label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         cursor: pointer;
+      }
+
+      input[type="radio"] {
+        accent-color: var(--accent);
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
+      }
+
+      /* 美化原生文件上传按钮 */
+      input[type="file"] {
+        width: 100%;
+        font-size: 13px;
+        margin-bottom: 14px;
+        color: var(--text-muted);
+      }
+      input[type="file"]::file-selector-button {
+        margin-right: 12px;
+        padding: 6px 14px;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-main);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+      input[type="file"]::file-selector-button:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+      }
+
+      /* 核心主按钮 */
+      .primary-btn {
+        width: 100%;
+        padding: 12px;
+        background: var(--accent);
+        color: #ffffff;
+        border: none;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow:
+          0 4px 12px rgba(59, 130, 246, 0.3),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      }
+      .primary-btn:hover {
+        background: var(--accent-hover);
+        box-shadow:
+          0 6px 16px rgba(59, 130, 246, 0.4),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
+      }
+      .primary-btn:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+      }
+
+      #uploadStatus {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent);
+        margin-top: 10px;
+        text-align: center;
+        height: 16px;
       }
     </style>
   </head>
   <body>
-    <h3>自定义字幕大小</h3>
+    <main class="panel">
+      <p class="eyebrow">PlayPhrase</p>
+      <h1>全局设置与控制</h1>
+      <p class="subtitle">调整样式并管理你的播放设置与单词本。</p>
 
-    <div class="control-group">
-      <label>
-        <span>主字幕 (英文)</span>
-        <span><span id="mainVal">1.8</span>rem</span>
-      </label>
-      <input type="range" id="mainSize" min="0.5" max="5" step="0.1" value="1.8" />
-    </div>
+      <!-- 样式控制 -->
+      <section class="control-group">
+        <label
+          class="range-label"
+          for="mainSize"
+        >
+          <span><span class="label-main">英文字幕大小</span></span>
+          <span class="range-value"><span id="mainVal">1.8</span> rem</span>
+        </label>
+        <input
+          type="range"
+          id="mainSize"
+          min="0.5"
+          max="5"
+          step="0.1"
+          value="1.8"
+        />
+      </section>
 
-    <div class="control-group">
-      <label>
-        <span>翻译 (中文)</span>
-        <span><span id="transVal">1.5</span>rem</span>
-      </label>
-      <input type="range" id="transSize" min="0.5" max="4" step="0.1" value="1.5" />
-    </div>
+      <section class="control-group">
+        <label
+          class="range-label"
+          for="transSize"
+        >
+          <span><span class="label-main">中文翻译大小</span></span>
+          <span class="range-value"><span id="transVal">1.5</span> rem</span>
+        </label>
+        <input
+          type="range"
+          id="transSize"
+          min="0.5"
+          max="4"
+          step="0.1"
+          value="1.5"
+        />
+      </section>
 
-    <div class="control-group checkbox-row">
-      <label for="headerVisible">显示顶部 Header</label>
-      <input type="checkbox" id="headerVisible" />
-    </div>
+      <section class="control-group">
+        <label
+          class="toggle-row"
+          for="headerVisible"
+        >
+          <span>
+            <span class="label-main">显示页面 Header</span>
+            <span class="label-sub">关闭后可获得更沉浸的阅读体验</span>
+          </span>
+          <input
+            type="checkbox"
+            id="headerVisible"
+            checked
+          />
+        </label>
+      </section>
 
+      <!-- 循环次数设置 -->
+      <section class="control-group">
+        <label
+          class="range-label"
+          for="loopCount"
+        >
+          <span>
+            <span class="label-main">单词循环次数</span>
+            <span class="label-sub">当前词循环几次后跳下一个</span>
+          </span>
+          <span class="range-value"><span id="loopVal">3</span> 次</span>
+        </label>
+        <input
+          type="range"
+          id="loopCount"
+          min="1"
+          max="20"
+          step="1"
+          value="3"
+        />
+      </section>
+
+      <!-- 单词数据上传 -->
+      <section class="control-group">
+        <div class="range-label">
+          <span>
+            <span class="label-main">导入单词本 (JSON)</span>
+            <span class="label-sub"
+              >格式:[{"title":"单元1","words":["a","b"]}]</span
+            >
+          </span>
+        </div>
+        <div class="radio-group">
+          <label
+            ><input
+              type="radio"
+              name="uploadMode"
+              value="append"
+              checked
+            />
+            追加模式</label
+          >
+          <label
+            ><input
+              type="radio"
+              name="uploadMode"
+              value="overwrite"
+            />
+            覆盖模式</label
+          >
+        </div>
+        <input
+          type="file"
+          id="wordDataFile"
+          accept=".json"
+        />
+        <button
+          id="uploadBtn"
+          class="primary-btn"
+        >
+          上传并保存数据
+        </button>
+        <div id="uploadStatus"></div>
+      </section>
+    </main>
     <script src="popup.js"></script>
   </body>
 </html>
