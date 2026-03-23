@@ -8,9 +8,90 @@ let allWordsList = [];
 
 // 默认单词模板 (如果用户首次安装无数据时的占位)
 const defaultWordData = [
-  { title: "Unit 1", words: ["radiate", "radiant", "radical"] },
-  { title: "Unit 2", words: ["mediate", "medium"] },
+  {
+    page: 1,
+    index: 1,
+    word: "radiate",
+    meaning:
+      "vt. vi. 散发，流露；发出 (光、辐射等) vi. 呈辐射状发散 (或伸展)",
+  },
+  {
+    page: 1,
+    index: 2,
+    word: "radiant",
+    meaning: "adj. 容光焕发的；灿烂的；辐射的",
+  },
+  {
+    page: 1,
+    index: 3,
+    word: "radical",
+    meaning: "adj. 根本的；激进的 n. 激进分子；词根",
+  },
+  {
+    page: 2,
+    index: 1,
+    word: "mediate",
+    meaning: "vi. 调解；斡旋 vt. 经调解解决；促成",
+  },
+  {
+    page: 2,
+    index: 2,
+    word: "medium",
+    meaning: "n. 媒介；方法；中间物 adj. 中等的",
+  },
 ];
+
+// 统一按 page / index 排序，保证侧边栏、自动跳词、释义提示始终一致
+function sortWordData(data) {
+  return [...data].sort((a, b) => {
+    const pageDiff = a.page - b.page;
+    if (pageDiff !== 0) return pageDiff;
+    return a.index - b.index;
+  });
+}
+
+// 只接受新的扁平结构，避免旧结构混入后影响侧边栏和跳词逻辑
+function isValidWordEntry(item) {
+  return (
+    item &&
+    typeof item.page === "number" &&
+    Number.isFinite(item.page) &&
+    typeof item.index === "number" &&
+    Number.isFinite(item.index) &&
+    typeof item.word === "string" &&
+    item.word.trim() !== "" &&
+    typeof item.meaning === "string" &&
+    item.meaning.trim() !== ""
+  );
+}
+
+function buildAllWordsList(data) {
+  return data.map((item) => item.word);
+}
+
+function findWordEntry(targetWord) {
+  return wordData.find((item) => item.word === targetWord) || null;
+}
+
+function groupWordDataByPage(data) {
+  const pageMap = new Map();
+
+  data.forEach((item) => {
+    if (!pageMap.has(item.page)) pageMap.set(item.page, []);
+    pageMap.get(item.page).push(item);
+  });
+
+  return [...pageMap.entries()];
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 // ==========================================
 // 初始化：从 Storage 读取数据
@@ -31,10 +112,17 @@ chrome.storage.sync.get(
 );
 
 chrome.storage.local.get({ wordData: defaultWordData }, (data) => {
-  wordData = data.wordData.length > 0 ? data.wordData : defaultWordData;
-  allWordsList = wordData.flatMap((group) => group.words || []);
+  const storageWordData = Array.isArray(data.wordData) ? data.wordData : [];
+  const validWordData = storageWordData.filter(isValidWordEntry);
+  wordData =
+    validWordData.length > 0
+      ? sortWordData(validWordData)
+      : sortWordData(defaultWordData);
+  allWordsList = buildAllWordsList(wordData);
 
   createSidebar(); // 根据数据构建侧边栏
+  createMeaningOverlay(); // 初始化左上角释义提示
+  syncSidebarWithURL();
   injectToolbarButton();
   restoreLastWord();
 });
@@ -50,10 +138,12 @@ chrome.runtime.onMessage.addListener((request) => {
     currentLoopCount = 0; // 修改配置后立即重置当前计数
     console.log(`[PlayPhrase] 更新循环次数为: ${targetLoopCount}`);
   } else if (request.action === "updateWordData") {
-    wordData = request.wordData;
-    allWordsList = wordData.flatMap((group) => group.words || []);
+    const nextWordData = Array.isArray(request.wordData) ? request.wordData : [];
+    wordData = sortWordData(nextWordData.filter(isValidWordEntry));
+    allWordsList = buildAllWordsList(wordData);
     console.log(`[PlayPhrase] 单词本已更新，共 ${allWordsList.length} 个单词`);
     createSidebar(); // 重新渲染侧边栏
+    createMeaningOverlay();
     syncSidebarWithURL();
   }
 });
@@ -180,10 +270,17 @@ function createSidebar() {
   if (wasShowing) sidebar.classList.add("show"); // 保持之前的打开状态
 
   let wordsHtml = "";
-  wordData.forEach((group) => {
-    wordsHtml += `<li class="unit-header">${group.title || "Group"}</li>`;
-    (group.words || []).forEach((word) => {
-      wordsHtml += `<li class="word-item" data-word="${word}">${word}</li>`;
+  // 将新的扁平单词结构按 page 分页渲染，便于在侧边栏快速定位
+  groupWordDataByPage(wordData).forEach(([page, pageWords]) => {
+    wordsHtml += `<li class="unit-header">Page ${escapeHTML(page)}</li>`;
+    pageWords.forEach((item) => {
+      wordsHtml += `
+        <li class="word-item" data-word="${escapeHTML(item.word)}">
+          <span class="word-index">${escapeHTML(item.index)}</span>
+          <span class="word-main">${escapeHTML(item.word)}</span>
+          <span class="word-meaning">${escapeHTML(item.meaning)}</span>
+        </li>
+      `;
     });
   });
 
@@ -213,6 +310,16 @@ function createSidebar() {
         jumpToWord(targetWord);
       }
     });
+}
+
+function createMeaningOverlay() {
+  // 左上角释义卡片只创建一次，后续由 syncSidebarWithURL 负责更新内容和显隐
+  let overlay = document.getElementById("custom-word-meaning-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "custom-word-meaning-overlay";
+    document.body.appendChild(overlay);
+  }
 }
 
 function injectToolbarButton() {
@@ -282,15 +389,24 @@ function applyStyles(mainSize, transSize, headerVisible) {
     .copy-button i { font-size: 0.8em !important; line-height: 1 !important; height: auto !important; }
 
     /* 侧边栏样式补充 */
-    #custom-word-sidebar { position: fixed; top: 0; right: -550px; width: 420px; height: 100vh; background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(16px); border-left: 1px solid rgba(255, 255, 255, 0.1); z-index: 999999; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; color: white; font-family: sans-serif; }
+    #custom-word-sidebar { position: fixed; top: 0; right: -750px; width: 620px; height: 100vh; background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(16px); border-left: 1px solid rgba(255, 255, 255, 0.1); z-index: 999999; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; color: white; font-family: sans-serif; }
     #custom-word-sidebar.show { right: 0; box-shadow: -10px 0 30px rgba(0,0,0,0.5); }
     .sidebar-header { padding: 20px; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .sidebar-header-top { display: flex; justify-content: space-between; align-items: center; }
     .sidebar-word-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; scroll-behavior: smooth; }
     .sidebar-word-list .unit-header { padding: 10px 20px; font-size: 0.85rem; background: rgba(0,0,0,1); text-transform: uppercase; position: sticky; top: 0; z-index: 10; }
-    .sidebar-word-list li.word-item { padding: 12px 20px 12px 30px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); transition: all 0.2s; }
+    .sidebar-word-list li.word-item { display: grid; grid-template-columns: 52px minmax(90px, 120px) 1fr; gap: 12px; align-items: start; padding: 12px 20px 12px 30px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); transition: all 0.2s; }
     .sidebar-word-list li.word-item:hover { background: rgba(255,255,255,0.1); color: #64b5f6; }
     .sidebar-word-list li.word-item.active-word { background: rgba(100,181,246,0.2); color: #90caf9; font-weight: bold; border-left: 4px solid #64b5f6; padding-left: 26px; }
+    .sidebar-word-list .word-index { display: inline-flex; justify-content: center; min-width: 36px; padding: 2px 8px; border-radius: 999px; background: rgba(100,181,246,0.16); color: #bbdefb; font-size: 0.8rem; font-weight: 700; line-height: 1.5; }
+    .sidebar-word-list .word-main { font-size: 0.95rem; font-weight: 700; line-height: 1.5; word-break: break-word; }
+    .sidebar-word-list .word-meaning { color: rgba(255,255,255,0.78); font-size: 0.86rem; line-height: 1.6; word-break: break-word; }
+
+    /* 左上角显示当前 targetWord 的页码 / 序号 / 中文释义 */
+    #custom-word-meaning-overlay { position: fixed; top: 16px; left: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 16px; background: rgba(12, 18, 28, 0.72); border: 1px solid rgba(255,255,255,0.16); backdrop-filter: blur(14px); color: #ffffff; z-index: 999998; box-shadow: 0 12px 28px rgba(0,0,0,0.3); display: none; }
+    #custom-word-meaning-overlay.show { display: block; }
+    #custom-word-meaning-overlay .meaning-meta { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 10px; border-radius: 999px; background: rgba(100,181,246,0.16); color: #bbdefb; font-size: 0.8rem; font-weight: 700; }
+    #custom-word-meaning-overlay .meaning-text { font-size: 0.95rem; line-height: 1.6; color: rgba(255,255,255,0.92); word-break: break-word; }
   `;
 }
 
@@ -314,7 +430,15 @@ const autoSelectFavorites = setInterval(() => {
 // 状态同步与记忆恢复
 function syncSidebarWithURL() {
   const currentWord = getCurrentWordFromHash();
-  if (!currentWord) return;
+  const overlay = document.getElementById("custom-word-meaning-overlay");
+
+  if (!currentWord) {
+    if (overlay) {
+      overlay.classList.remove("show");
+      overlay.innerHTML = "";
+    }
+    return;
+  }
   localStorage.setItem("playphrase_last_word", currentWord);
 
   const listItems = document.querySelectorAll(
@@ -322,13 +446,33 @@ function syncSidebarWithURL() {
   );
   listItems.forEach((li) => li.classList.remove("active-word"));
 
+  const activeSelectorWord =
+    typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(currentWord)
+      : currentWord.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const activeLi = document.querySelector(
-    `.sidebar-word-list li.word-item[data-word="${currentWord}"]`,
+    `.sidebar-word-list li.word-item[data-word="${activeSelectorWord}"]`,
   );
   if (activeLi) {
     activeLi.classList.add("active-word");
     activeLi.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+
+  // 当前 hash 命中的词条同步显示中文释义；没命中时隐藏卡片
+  const activeWordEntry = findWordEntry(currentWord);
+  if (!overlay) return;
+
+  if (!activeWordEntry) {
+    overlay.classList.remove("show");
+    overlay.innerHTML = "";
+    return;
+  }
+
+  overlay.innerHTML = `
+    <div class="meaning-meta">Page ${escapeHTML(activeWordEntry.page)} · Index ${escapeHTML(activeWordEntry.index)}</div>
+    <div class="meaning-text">${escapeHTML(activeWordEntry.meaning)}</div>
+  `;
+  overlay.classList.add("show");
 }
 
 function restoreLastWord() {

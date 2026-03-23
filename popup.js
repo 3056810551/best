@@ -8,6 +8,42 @@
   const transVal = document.getElementById("transVal");
   const loopVal = document.getElementById("loopVal");
 
+  // 新版单词本固定使用扁平结构，上传时统一在这里做校验与排序
+  function isValidWordEntry(item) {
+    return (
+      item &&
+      typeof item.page === "number" &&
+      Number.isFinite(item.page) &&
+      typeof item.index === "number" &&
+      Number.isFinite(item.index) &&
+      typeof item.word === "string" &&
+      item.word.trim() !== "" &&
+      typeof item.meaning === "string" &&
+      item.meaning.trim() !== ""
+    );
+  }
+
+  function validateWordData(data) {
+    if (!Array.isArray(data)) {
+      throw new Error("JSON 根目录必须是数组");
+    }
+
+    const invalidIndex = data.findIndex((item) => !isValidWordEntry(item));
+    if (invalidIndex !== -1) {
+      throw new Error(
+        `第 ${invalidIndex + 1} 项格式不正确，必须包含 page / index / word / meaning`,
+      );
+    }
+  }
+
+  function sortWordData(data) {
+    return [...data].sort((a, b) => {
+      const pageDiff = a.page - b.page;
+      if (pageDiff !== 0) return pageDiff;
+      return a.index - b.index;
+    });
+  }
+
   // ==========================================
   // 初始化加载配置 (循环次数等放入 sync)
   // ==========================================
@@ -104,37 +140,50 @@
     reader.onload = (e) => {
       try {
         const newWordData = JSON.parse(e.target.result);
-        if (!Array.isArray(newWordData))
-          throw new Error("JSON 根目录必须是数组");
+        validateWordData(newWordData);
 
         // 读取本地现有的数据进行合并或覆盖
         chrome.storage.local.get({ wordData: [] }, (data) => {
-          let finalWordData = [];
+          try {
+            const existingWordData = Array.isArray(data.wordData)
+              ? data.wordData
+              : [];
+            let finalWordData = [];
 
-          if (mode === "append") {
-            // 追加模式：合并旧数据和新数据
-            finalWordData = [...data.wordData, ...newWordData];
-          } else {
-            // 覆盖模式：直接使用新数据
-            finalWordData = newWordData;
-          }
+            if (mode === "append") {
+              // 追加模式：合并旧数据和新数据
+              finalWordData = [...existingWordData, ...newWordData];
+            } else {
+              // 覆盖模式：直接使用新数据
+              finalWordData = [...newWordData];
+            }
 
-          // 保存回本地存储 (用 local 防止文件过大超出 sync 限制)
-          chrome.storage.local.set({ wordData: finalWordData }, () => {
-            statusDiv.style.color = "var(--accent)";
-            statusDiv.textContent = "✅ 上传并保存成功！";
-            setTimeout(() => (statusDiv.textContent = ""), 2500);
+            validateWordData(finalWordData);
+            finalWordData = sortWordData(finalWordData);
 
-            // 通知网页端的 content.js 立即重新渲染侧边栏
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-              if (tabs[0]?.id) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                  action: "updateWordData",
-                  wordData: finalWordData,
-                });
-              }
+            // 保存回本地存储 (用 local 防止文件过大超出 sync 限制)
+            chrome.storage.local.set({ wordData: finalWordData }, () => {
+              statusDiv.style.color = "var(--accent)";
+              statusDiv.textContent = "✅ 上传并保存成功！";
+              setTimeout(() => (statusDiv.textContent = ""), 2500);
+
+              // 通知网页端的 content.js 立即重新渲染侧边栏
+              chrome.tabs.query(
+                { active: true, currentWindow: true },
+                (tabs) => {
+                  if (tabs[0]?.id) {
+                    chrome.tabs.sendMessage(tabs[0].id, {
+                      action: "updateWordData",
+                      wordData: finalWordData,
+                    });
+                  }
+                },
+              );
             });
-          });
+          } catch (err) {
+            statusDiv.style.color = "var(--danger)";
+            statusDiv.textContent = "❌ 解析失败: " + err.message;
+          }
         });
       } catch (err) {
         // 捕获 JSON 解析错误
