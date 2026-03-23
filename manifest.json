@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "playphrase.me",
     "version": "3.0",
-    "description": "自定义并记忆网站字幕字体大小",
+    "description": "playphrase.me next",
     "permissions": [
         "storage",
         "activeTab",
@@ -10,7 +10,7 @@
     ],
     "action": {
         "default_popup": "popup.html",
-        "default_title": "调节字幕大小"
+        "default_title": "playphrase.me next"
     },
     "content_scripts": [
         {
