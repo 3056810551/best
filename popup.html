@@ -358,6 +358,44 @@
         </label>
       </section>
 
+      <section class="control-group">
+        <label
+          class="toggle-row"
+          for="floatingWordListEnabled"
+        >
+          <span>
+            <span class="label-main">显示左侧悬浮单词表</span>
+            <span class="label-sub">关闭后页面左侧悬浮单词表会隐藏</span>
+          </span>
+          <input
+            type="checkbox"
+            id="floatingWordListEnabled"
+            checked
+          />
+        </label>
+      </section>
+
+      <section class="control-group">
+        <label
+          class="range-label"
+          for="floatingWordListOpacity"
+        >
+          <span>
+            <span class="label-main">悬浮单词列表透明度</span>
+            <span class="label-sub">列表可在页面左侧拖动调整位置</span>
+          </span>
+          <span class="range-value"><span id="floatingWordListOpacityVal">82</span>%</span>
+        </label>
+        <input
+          type="range"
+          id="floatingWordListOpacity"
+          min="0.2"
+          max="1"
+          step="0.02"
+          value="0.82"
+        />
+      </section>
+
       <!-- 循环次数设置 -->
       <section class="control-group">
         <label

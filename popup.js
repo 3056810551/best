@@ -5,11 +5,28 @@
   const meaningOverlayInFullscreenInput = document.getElementById(
     "meaningOverlayInFullscreen",
   );
+  const floatingWordListEnabledInput = document.getElementById(
+    "floatingWordListEnabled",
+  );
+  const floatingWordListOpacityInput = document.getElementById(
+    "floatingWordListOpacity",
+  );
   const loopInput = document.getElementById("loopCount");
 
   const mainVal = document.getElementById("mainVal");
   const transVal = document.getElementById("transVal");
+  const floatingWordListOpacityVal = document.getElementById(
+    "floatingWordListOpacityVal",
+  );
   const loopVal = document.getElementById("loopVal");
+
+  function formatOpacityPercent(value) {
+    return Math.round(Number(value) * 100);
+  }
+
+  function syncFloatingWordListControls() {
+    floatingWordListOpacityInput.disabled = !floatingWordListEnabledInput.checked;
+  }
 
   // 新版单词本固定使用扁平结构，上传时统一在这里做校验与排序
   function isValidWordEntry(item) {
@@ -56,6 +73,8 @@
       transSize: "1.5",
       headerVisible: true,
       meaningOverlayInFullscreen: true,
+      floatingWordListEnabled: true,
+      floatingWordListOpacity: 0.82,
       targetLoopCount: 3,
     },
     (data) => {
@@ -63,11 +82,17 @@
       transInput.value = data.transSize;
       headerVisibleInput.checked = data.headerVisible;
       meaningOverlayInFullscreenInput.checked = data.meaningOverlayInFullscreen;
+      floatingWordListEnabledInput.checked = data.floatingWordListEnabled;
+      floatingWordListOpacityInput.value = data.floatingWordListOpacity;
       loopInput.value = data.targetLoopCount;
 
       mainVal.textContent = data.mainSize;
       transVal.textContent = data.transSize;
+      floatingWordListOpacityVal.textContent = formatOpacityPercent(
+        data.floatingWordListOpacity,
+      );
       loopVal.textContent = data.targetLoopCount;
+      syncFloatingWordListControls();
     },
   );
 
@@ -80,11 +105,18 @@
     const headerVisible = headerVisibleInput.checked;
     const meaningOverlayInFullscreen =
       meaningOverlayInFullscreenInput.checked;
+    const floatingWordListEnabled = floatingWordListEnabledInput.checked;
+    const floatingWordListOpacity = parseFloat(
+      floatingWordListOpacityInput.value,
+    );
     const targetLoopCount = parseInt(loopInput.value, 10);
 
     mainVal.textContent = mainSize;
     transVal.textContent = transSize;
+    floatingWordListOpacityVal.textContent =
+      formatOpacityPercent(floatingWordListOpacity);
     loopVal.textContent = targetLoopCount;
+    syncFloatingWordListControls();
 
     // 保存到同步存储区
     chrome.storage.sync.set({
@@ -92,6 +124,8 @@
       transSize,
       headerVisible,
       meaningOverlayInFullscreen,
+      floatingWordListEnabled,
+      floatingWordListOpacity,
       targetLoopCount,
     });
 
@@ -110,6 +144,11 @@
         action: "updateMeaningOverlayFullscreen",
         meaningOverlayInFullscreen,
       });
+      chrome.tabs.sendMessage(tabs[0].id, {
+        action: "updateFloatingWordListOverlay",
+        floatingWordListEnabled,
+        floatingWordListOpacity,
+      });
       // 更新循环次数
       chrome.tabs.sendMessage(tabs[0].id, {
         action: "updateLoopCount",
@@ -123,6 +162,8 @@
   transInput.addEventListener("input", updateSettings);
   headerVisibleInput.addEventListener("change", updateSettings);
   meaningOverlayInFullscreenInput.addEventListener("change", updateSettings);
+  floatingWordListEnabledInput.addEventListener("change", updateSettings);
+  floatingWordListOpacityInput.addEventListener("input", updateSettings);
   loopInput.addEventListener("input", updateSettings);
 
   // ==========================================
