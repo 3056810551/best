@@ -1132,6 +1132,7 @@ function applyStyles(mainSize, transSize, headerVisible) {
     #custom-word-list-overlay .floating-word-list-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); cursor: move; }
     #custom-word-list-overlay .floating-word-list-title { font-size: 0.95rem; font-weight: 800; color: #e0f2fe; }
     #custom-word-list-overlay .floating-word-list-subtitle { font-size: 0.76rem; font-weight: 700; color: rgba(255,255,255,0.58); text-transform: uppercase; letter-spacing: 0.06em; }
+    #custom-word-list-overlay .unit-header { background: rgba(255,255,255,0.06); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.05); }
     #custom-word-list-overlay .floating-word-list-scroll { flex: 1; min-height: 0; }
     #custom-word-list-overlay .floating-word-list-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
     #custom-word-list-overlay .floating-word-list-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -1184,9 +1185,7 @@ function syncSidebarWithURL() {
   localStorage.setItem("playphrase_last_word", currentWord);
 
   ensureWordVisibleInSidebar(currentWord);
-  ensureWordVisibleInFloatingWordList(currentWord);
   renderSidebarVirtualList(true);
-  renderFloatingWordListVirtualList(true);
 
   // 当前 hash 命中的词条同步显示中文释义；没命中时隐藏卡片
   const activeWordEntry = findWordEntry(currentWord);
@@ -1222,6 +1221,15 @@ function syncSidebarWithURL() {
   if (shouldShowFloatingWordListOverlay()) {
     if (floatingWordListOverlay) floatingWordListOverlay.classList.add("show");
     applyFloatingWordListPosition();
+    requestAnimationFrame(() => {
+      const latestFloatingWordList = document.getElementById(
+        "floating-word-list-overlay-list",
+      );
+      if (!latestFloatingWordList) return;
+
+      ensureWordVisibleInFloatingWordList(currentWord);
+      renderFloatingWordListVirtualList(true);
+    });
   } else if (floatingWordListOverlay) {
     floatingWordListOverlay.classList.remove("show");
   }
