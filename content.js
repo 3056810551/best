@@ -672,7 +672,6 @@ chrome.storage.local.get({ wordData: defaultWordData }, (data) => {
   createMeaningOverlay(); // 初始化左上角释义提示
   createFloatingWordListOverlay(); // 初始化左侧悬浮单词列表
   syncSidebarWithURL();
-  injectToolbarButton();
   restoreLastWord();
 });
 
@@ -1028,58 +1027,23 @@ function createFloatingWordListOverlay() {
   scheduleFloatingWordListVirtualListRender(true);
 }
 
-function injectToolbarButton() {
-  const shortVideoButton = [...document.querySelectorAll(".filter-input-icon")]
-    .find((element) => {
-      const icon = element.querySelector(".material-symbols-outlined");
-      return icon && icon.textContent.trim() === "dynamic_feed";
-    });
-  if (!shortVideoButton || shortVideoButton.dataset.wordListBound === "true")
-    return;
+function toggleWordSidebar() {
+  const sidebar = document.getElementById("custom-word-sidebar");
+  if (!sidebar) return;
 
-  const shortVideoLi = shortVideoButton.closest("li");
-  if (!shortVideoLi) return;
-
-  const replacementLi = shortVideoLi.cloneNode(true);
-  shortVideoLi.replaceWith(replacementLi);
-
-  const replacementButton = replacementLi.querySelector(".filter-input-icon");
-  if (!replacementButton) return;
-
-  const icon = replacementButton.querySelector(".material-symbols-outlined");
-  if (icon) {
-    icon.textContent = "format_list_bulleted";
+  sidebar.classList.toggle("show");
+  if (sidebar.classList.contains("show")) {
+    syncSidebarWithURL();
   }
+}
 
-  replacementButton.setAttribute("aria-label", "打开右侧单词表");
-  replacementButton.setAttribute("role", "button");
-  replacementButton.setAttribute("tabindex", "0");
-  replacementButton.dataset.wordListBound = "true";
+function handleWordSidebarShortcut(event) {
+  if (event.defaultPrevented || event.repeat || event.isComposing) return;
+  if (!event.ctrlKey || event.altKey || event.metaKey) return;
+  if (String(event.key).toLowerCase() !== "m") return;
 
-  const toggleSidebar = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (typeof event.stopImmediatePropagation === "function") {
-      event.stopImmediatePropagation();
-    }
-
-    const sidebar = document.getElementById("custom-word-sidebar");
-    if (sidebar) {
-      sidebar.classList.toggle("show");
-      if (sidebar.classList.contains("show")) syncSidebarWithURL();
-    }
-  };
-
-  replacementLi.addEventListener("click", toggleSidebar, true);
-  replacementButton.addEventListener("click", toggleSidebar, true);
-  replacementButton.addEventListener("mousedown", toggleSidebar, true);
-  replacementButton.addEventListener("mouseup", toggleSidebar, true);
-  replacementButton.addEventListener("pointerdown", toggleSidebar, true);
-  replacementButton.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      toggleSidebar(event);
-    }
-  });
+  event.preventDefault();
+  toggleWordSidebar();
 }
 
 // ==========================================
@@ -1268,6 +1232,7 @@ function restoreLastWord() {
 }
 
 window.addEventListener("hashchange", syncSidebarWithURL);
+window.addEventListener("keydown", handleWordSidebarShortcut, true);
 window.addEventListener("resize", () => {
   applyMeaningOverlayPosition();
   applyFloatingWordListPosition();
@@ -1282,14 +1247,3 @@ document.addEventListener("webkitfullscreenchange", () => {
   createFloatingWordListOverlay();
   syncSidebarWithURL();
 });
-
-const observer = new MutationObserver(() => {
-  if (
-    [...document.querySelectorAll(".filter-input-icon")].some((element) => {
-      const icon = element.querySelector(".material-symbols-outlined");
-      return icon && icon.textContent.trim() === "dynamic_feed";
-    })
-  )
-    injectToolbarButton();
-});
-observer.observe(document.body, { childList: true, subtree: true });
