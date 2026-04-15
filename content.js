@@ -1046,6 +1046,18 @@ function handleWordSidebarShortcut(event) {
   toggleWordSidebar();
 }
 
+function bindWordSidebarShortcutListeners() {
+  if (window.__playphraseWordSidebarShortcutBound !== true) {
+    window.addEventListener("keydown", handleWordSidebarShortcut, true);
+    window.__playphraseWordSidebarShortcutBound = true;
+  }
+
+  if (document.__playphraseWordSidebarShortcutBound !== true) {
+    document.addEventListener("keydown", handleWordSidebarShortcut, true);
+    document.__playphraseWordSidebarShortcutBound = true;
+  }
+}
+
 // ==========================================
 // 样式注入与其他工具方法
 // ==========================================
@@ -1232,17 +1244,19 @@ function restoreLastWord() {
 }
 
 window.addEventListener("hashchange", syncSidebarWithURL);
-window.addEventListener("keydown", handleWordSidebarShortcut, true);
+bindWordSidebarShortcutListeners();
 window.addEventListener("resize", () => {
   applyMeaningOverlayPosition();
   applyFloatingWordListPosition();
 });
 document.addEventListener("fullscreenchange", () => {
+  bindWordSidebarShortcutListeners();
   createMeaningOverlay();
   createFloatingWordListOverlay();
   syncSidebarWithURL();
 });
 document.addEventListener("webkitfullscreenchange", () => {
+  bindWordSidebarShortcutListeners();
   createMeaningOverlay();
   createFloatingWordListOverlay();
   syncSidebarWithURL();
