@@ -1029,30 +1029,55 @@ function createFloatingWordListOverlay() {
 }
 
 function injectToolbarButton() {
-  if (document.getElementById("custom-sidebar-btn")) return;
-  const settingsIconContainer = document.querySelector(
-    '.filter-input-icon[aria-label="Settings"]',
-  );
-  if (!settingsIconContainer) return;
+  const shortVideoButton = [...document.querySelectorAll(".filter-input-icon")]
+    .find((element) => {
+      const icon = element.querySelector(".material-symbols-outlined");
+      return icon && icon.textContent.trim() === "dynamic_feed";
+    });
+  if (!shortVideoButton || shortVideoButton.dataset.wordListBound === "true")
+    return;
 
-  const settingsLi = settingsIconContainer.closest("li");
-  if (!settingsLi) return;
+  const shortVideoLi = shortVideoButton.closest("li");
+  if (!shortVideoLi) return;
 
-  const newLi = document.createElement("li");
-  newLi.className = "input-button";
-  newLi.id = "custom-sidebar-btn";
-  newLi.innerHTML = `
-    <div role="button" tabindex="0" class="filter-input-icon" aria-label="Open Word List">
-      <i class="material-symbols-outlined" style="color: #64b5f6;">format_list_bulleted</i>
-    </div>
-  `;
-  settingsLi.parentNode.insertBefore(newLi, settingsLi);
+  const replacementLi = shortVideoLi.cloneNode(true);
+  shortVideoLi.replaceWith(replacementLi);
 
-  newLi.addEventListener("click", () => {
+  const replacementButton = replacementLi.querySelector(".filter-input-icon");
+  if (!replacementButton) return;
+
+  const icon = replacementButton.querySelector(".material-symbols-outlined");
+  if (icon) {
+    icon.textContent = "format_list_bulleted";
+  }
+
+  replacementButton.setAttribute("aria-label", "打开右侧单词表");
+  replacementButton.setAttribute("role", "button");
+  replacementButton.setAttribute("tabindex", "0");
+  replacementButton.dataset.wordListBound = "true";
+
+  const toggleSidebar = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") {
+      event.stopImmediatePropagation();
+    }
+
     const sidebar = document.getElementById("custom-word-sidebar");
     if (sidebar) {
       sidebar.classList.toggle("show");
       if (sidebar.classList.contains("show")) syncSidebarWithURL();
+    }
+  };
+
+  replacementLi.addEventListener("click", toggleSidebar, true);
+  replacementButton.addEventListener("click", toggleSidebar, true);
+  replacementButton.addEventListener("mousedown", toggleSidebar, true);
+  replacementButton.addEventListener("mouseup", toggleSidebar, true);
+  replacementButton.addEventListener("pointerdown", toggleSidebar, true);
+  replacementButton.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      toggleSidebar(event);
     }
   });
 }
@@ -1259,7 +1284,12 @@ document.addEventListener("webkitfullscreenchange", () => {
 });
 
 const observer = new MutationObserver(() => {
-  if (document.querySelector('.filter-input-icon[aria-label="Settings"]'))
+  if (
+    [...document.querySelectorAll(".filter-input-icon")].some((element) => {
+      const icon = element.querySelector(".material-symbols-outlined");
+      return icon && icon.textContent.trim() === "dynamic_feed";
+    })
+  )
     injectToolbarButton();
 });
 observer.observe(document.body, { childList: true, subtree: true });
